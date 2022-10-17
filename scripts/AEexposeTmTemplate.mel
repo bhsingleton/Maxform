@@ -1,0 +1,51 @@
+global proc AEexposeTmTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        AEtransformMain($nodeName);
+        AEtransformNoScroll($nodeName);
+        
+        editorTemplate -beginLayout "Objects" -collapse false;
+
+		    editorTemplate -addControl "exposeNode";
+            editorTemplate -addControl "localReferenceNode";
+            editorTemplate -addControl "useParent";
+			
+		editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Rotation" -collapse false;
+
+			editorTemplate -addControl "eulerXOrder";
+			editorTemplate -addControl "eulerYOrder";
+			editorTemplate -addControl "eulerZOrder";
+			editorTemplate -addControl "stripNUScale";
+			
+		editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Timing" -collapse false;
+
+			editorTemplate -addControl "useTimeOffset";
+			editorTemplate -addControl "timeOffset";
+			
+		editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Exposed Values" -collapse false;
+		
+			editorTemplate -addControl "localPosition";
+            editorTemplate -addControl "localEuler";
+			editorTemplate -addControl "worldPosition";
+			editorTemplate -addControl "worldEuler";
+			editorTemplate -addControl "distance";
+			editorTemplate -addControl "angle";
+
+		editorTemplate -endLayout;
+
+        editorTemplate -addExtraControls;
+		
+		editorTemplate -suppress "exposeMatrix";
+		editorTemplate -suppress "localReferenceMatrix";
+		
+    editorTemplate -endScrollLayout;
+    
+}
