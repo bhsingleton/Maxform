@@ -1,0 +1,25 @@
+global proc AEmaxformTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+		AEtransformMain($nodeName);
+        AEtransformNoScroll($nodeName);
+		
+		editorTemplate -beginLayout "Maxform Attributes" -collapse false;
+
+		    editorTemplate -addControl "translationPart";
+            editorTemplate -addControl "rotationPart";
+            editorTemplate -addControl "scalePart";
+			
+		editorTemplate -endLayout;
+		
+		editorTemplate -addExtraControls;
+		editorTemplate -suppress "preTranslate";
+		editorTemplate -suppress "preRotate";
+		editorTemplate -suppress "preScale";
+		editorTemplate -suppress "transform";
+        
+    editorTemplate -endScrollLayout;
+    
+}

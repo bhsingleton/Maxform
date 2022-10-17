@@ -1,0 +1,23 @@
+global proc AEscaleListTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        editorTemplate -beginLayout "Scale List Attributes" -collapse false;
+			
+			editorTemplate -addControl "active";
+            editorTemplate -addControl "normalizeWeights";
+        
+        editorTemplate -endLayout;
+        
+		editorTemplate -addControl "list";
+		
+		editorTemplate -suppress "matrix";
+		editorTemplate -suppress "value";
+		
+        AEdependNodeTemplate $nodeName;
+        editorTemplate -addExtraControls;
+        
+    editorTemplate -endScrollLayout;
+    
+}
