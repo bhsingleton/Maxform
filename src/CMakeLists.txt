@@ -21,6 +21,8 @@ set(
 	"RotationListNode.h"
 	"ScaleListNode.cpp"
 	"ScaleListNode.h"
+	"ExposeTransform.cpp"
+	"ExposeTransform.h"
 )
 
 find_package(Maya REQUIRED)

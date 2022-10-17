@@ -5,6 +5,7 @@
 //
 
 #include "Maxform.h"
+#include "ExposeTransform.h"
 #include "PRSNode.h"
 #include "PositionListNode.h"
 #include "RotationListNode.h"
@@ -22,6 +23,9 @@ MStatus initializePlugin(MObject obj)
 	MFnPlugin plugin(obj, "Ben Singleton", "2017", "Any");
 
 	status = plugin.registerTransform("maxform", Maxform::id, Maxform::creator, Maxform::initialize, Matrix3::creator, Matrix3::id, &Maxform::classification);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerTransform("exposeTm", ExposeTransform::id, ExposeTransform::creator, ExposeTransform::initialize, Matrix3::creator, Matrix3::id, &ExposeTransform::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.registerNode("prs", PRS::id, PRS::creator, PRS::initialize);
@@ -50,6 +54,9 @@ MStatus uninitializePlugin(MObject obj)
 	MFnPlugin plugin(obj);
 
 	status = plugin.deregisterNode(Maxform::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(ExposeTransform::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.deregisterNode(PRS::id);
