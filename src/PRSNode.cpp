@@ -220,7 +220,9 @@ Callback to whenever the active index changes on the associated position-list.
 */
 {
 
-	if (message & MNodeMessage::kAttributeSet && clientData != nullptr)
+	MObject attribute = plug.attribute();
+
+	if (attribute == PositionList::active && message & MNodeMessage::kAttributeSet && clientData != nullptr)
 	{
 
 		PRS* prs = static_cast<PRS*>(clientData);
@@ -243,7 +245,9 @@ Callback to whenever the active index changes on the associated rotation-list.
 */
 {
 
-	if (message & MNodeMessage::kAttributeSet && clientData != nullptr)
+	MObject attribute = plug.attribute();
+
+	if (attribute == RotationList::active && message & MNodeMessage::kAttributeSet && clientData != nullptr)
 	{
 
 		PRS* prs = static_cast<PRS*>(clientData);
@@ -266,7 +270,9 @@ Callback to whenever the active index changes on the associated scale-list.
 */
 {
 
-	if (message & MNodeMessage::kAttributeSet && clientData != nullptr)
+	MObject attribute = plug.attribute();
+
+	if (attribute == ScaleList::active && message & MNodeMessage::kAttributeSet && clientData != nullptr)
 	{
 
 		PRS* prs = static_cast<PRS*>(clientData);
