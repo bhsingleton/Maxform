@@ -27,8 +27,8 @@ MObject		Maxform::translationPart;
 MObject		Maxform::rotationPart;
 MObject		Maxform::scalePart;
 
-MString		Maxform::inputCategory("Input");
-MString		Maxform::outputCategory("Output");
+MString		Maxform::matrixCategory("Matrix");
+MString		Maxform::partsCategory("Parts");
 MString		Maxform::preTranslateCategory("PreTranslate");
 MString		Maxform::preRotateCategory("PreRotate");
 MString		Maxform::preScaleCategory("PreScale");
@@ -65,7 +65,26 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (fnAttribute.hasCategory(Maxform::outputCategory))
+	bool isMatrix = fnAttribute.hasCategory(Maxform::matrixCategory);
+	bool isMatrixPart = fnAttribute.hasCategory(Maxform::partsCategory);
+	
+	if (isMatrix)
+	{
+
+		// Compute local transformation matrix
+		//
+		status = this->computeLocalTransformation(this->transformationMatrixPtr(), data);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Mark plug as clean
+		//
+		status = data.setClean(plug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		return MS::kSuccess;
+
+	}
+	else if (isMatrixPart)
 	{
 
 		// Get input data handles
@@ -94,12 +113,6 @@ Only these values should be used when performing computations!
 		MDataHandle scalePartHandle = data.outputValue(Maxform::scalePart, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MDataHandle matrixHandle = data.outputValue(Maxform::matrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle inverseMatrixHandle = data.outputValue(Maxform::inverseMatrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
 		// Update output data handles
 		//
 		translationPartHandle.setMMatrix(translationPart);
@@ -110,12 +123,6 @@ Only these values should be used when performing computations!
 
 		scalePartHandle.setMMatrix(scalePart);
 		scalePartHandle.setClean();
-
-		matrixHandle.setMMatrix(transform);
-		matrixHandle.setClean();
-
-		inverseMatrixHandle.setMMatrix(transform.inverse());
-		inverseMatrixHandle.setClean();
 
 		// Mark plug as clean
 		//
@@ -132,6 +139,53 @@ Only these values should be used when performing computations!
 
 	}
 	
+};
+
+
+MStatus Maxform::computeLocalTransformation(MPxTransformationMatrix* xform, MDataBlock& data)
+/**
+This method computes the transformation matrix for a passed data block and places the output into a passed transformation matrix.
+The caller needs to allocate space for the passed transformation matrix.
+
+@param xform: The transformation matrix to fill with computed values.
+@param data: The data block used for the transformation matrix computation.
+@return: Status code.
+*/
+{
+
+	MStatus status;
+
+	// Get input handles
+	//
+	MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MDataHandle preTranslateHandle = data.inputValue(Maxform::preTranslate, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MDataHandle preRotateHandle = data.inputValue(Maxform::preRotate, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MDataHandle preScaleHandle = data.inputValue(Maxform::preScale, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Get input values
+	//
+	MMatrix transform = transformHandle.asMatrix();
+	MVector preTranslate = preTranslateHandle.asDouble3();
+	MQuaternion preRotate = preRotateHandle.asDouble4();
+	MVector preScale = preScaleHandle.asDouble3();
+
+	// Update transformation matrix
+	//
+	Matrix3* matrix3 = dynamic_cast<Matrix3*>(xform);
+	matrix3->setTransform(transform);
+	matrix3->setPreTranslation(preTranslate);
+	matrix3->setPreRotation(preRotate);
+	matrix3->setPreScale(preScale);
+
+	return MS::kSuccess;
+
 };
 
 
@@ -154,79 +208,124 @@ If you have specialty code that calls this method directly you'll have to ensure
 
 	// Inspect plug attribute
 	//
+	if (plug == Maxform::transform)
+	{
+
+		// Recompute local transformation matrix
+		//
+		MDataBlock data = this->forceCache();
+		MPxTransformationMatrix* xform = this->transformationMatrixPtr();
+
+		status = this->computeLocalTransformation(xform, data);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = data.setClean(plug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Mark matrix as dirty 
+		//
+		status = this->dirtyMatrix();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	}
+
+	return MPxTransform::validateAndSetValue(plug, handle);
+
+};
+
+
+MStatus Maxform::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
+/**
+This method gets called when connections are made to attributes of this node.
+You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
+
+@param plug: Attribute on this node.
+@param otherPlug: Attribute on the other node.
+@param asSrc: Is this plug a source of the connection.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Inspect plug attribute
+	//
 	MObject attribute = plug.attribute(&status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isPreTranslation = fnAttribute.hasCategory(Maxform::preTranslateCategory);
-	bool isPreRotation = fnAttribute.hasCategory(Maxform::preRotateCategory);
-	bool isPreScale = fnAttribute.hasCategory(Maxform::preScaleCategory);
-
-	if (attribute == Maxform::transform)
+	if (attribute == Maxform::transform && !asSrc)
 	{
 
-		// Update internal transformation matrix 
-		//
-		Matrix3* transform = this->matrix3Ptr();
+		Matrix3* matrix3 = this->matrix3Ptr();
 
-		if (transform != nullptr)
+		if (matrix3 != nullptr)
 		{
 
-			transform->updateTransform(handle.asMatrix());
-
-		}
-
-	}
-	else if (isPreTranslation)
-	{
-
-		// Update internal transformation matrix 
-		//
-		Matrix3* transform = this->matrix3Ptr();
-
-		if (transform != nullptr)
-		{
-
-			transform->updatePreTranslation(handle.asVector());
-
-		}
-
-	}
-	else if (isPreRotation)
-	{
-
-		// Update internal transformation matrix 
-		//
-		Matrix3* transform = this->matrix3Ptr();
-
-		if (transform != nullptr)
-		{
-
-			transform->updatePreRotation(handle.asDouble4());
-
-		}
-
-	}
-	else if (isPreScale)
-	{
-
-		// Update internal transformation matrix 
-		//
-		Matrix3* transform = this->matrix3Ptr();
-
-		if (transform != nullptr)
-		{
-
-			transform->updatePreScale(handle.asVector());
+			matrix3->enableOverride();
 
 		}
 
 	}
 	else;
 
-	return MPxTransform::validateAndSetValue(plug, handle);
+	return MPxNode::connectionMade(plug, otherPlug, asSrc);
+
+};
+
+
+MStatus Maxform::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
+/**
+This method gets called when connections are made to attributes of this node.
+You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
+
+@param plug: Attribute on this node.
+@param otherPlug: Attribute on the other node.
+@param asSrc: Is this plug a source of the connection.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Inspect plug attribute
+	//
+	MObject attribute = plug.attribute(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	if (attribute == Maxform::transform && !asSrc)
+	{
+
+		Matrix3* matrix3 = this->matrix3Ptr();
+
+		if (matrix3 != nullptr)
+		{
+
+			matrix3->disableOverride();
+
+		}
+
+	}
+	else;
+
+	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
+
+};
+
+
+void Maxform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
+{
+
+	// Call parent function
+	//
+	MPxTransform::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
+	assert(!disablingInfo.getCacheDisabled());
+
+	// Update caching preference
+	//
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, false);
 
 };
 
@@ -302,6 +401,7 @@ Use this function to define any static attributes.
 	MFnNumericAttribute fnNumericAttr;
 	MFnUnitAttribute fnUnitAttr;
 	MFnMatrixAttribute fnMatrixAttr;
+	MFnTypedAttribute fnTypedAttr;
 
 	// Input attributes:
 	// ".preTranslateX" attribute
@@ -309,65 +409,91 @@ Use this function to define any static attributes.
 	Maxform::preTranslateX = fnUnitAttr.create("preTranslateX", "ptx", MFnUnitAttribute::kDistance, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(Maxform::preTranslateCategory));
+
 	// ".preTranslateY" attribute
 	//
 	Maxform::preTranslateY = fnUnitAttr.create("preTranslateY", "pty", MFnUnitAttribute::kDistance, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(Maxform::preTranslateCategory));
 
 	// ".preTranslateZ" attribute
 	//
 	Maxform::preTranslateZ = fnUnitAttr.create("preTranslateZ", "ptz", MFnUnitAttribute::kDistance, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(Maxform::preTranslateCategory));
+
 	// ".preTranslate" attribute
 	//
 	Maxform::preTranslate = fnNumericAttr.create("preTranslate", "pt", Maxform::preTranslateX, Maxform::preTranslateY, Maxform::preTranslateZ, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preTranslateCategory));
 
 	// ".preRotateX" attribute
 	//
 	Maxform::preRotateX = fnNumericAttr.create("preRotateX", "prx", MFnNumericData::kDouble, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preRotateCategory));
+
 	// ".preRotateY" attribute
 	//
 	Maxform::preRotateY = fnNumericAttr.create("preRotateY", "pry", MFnNumericData::kDouble, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preRotateCategory));
 
 	// ".preRotateZ" attribute
 	//
 	Maxform::preRotateZ = fnNumericAttr.create("preRotateZ", "prz", MFnNumericData::kDouble, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preRotateCategory));
+
 	// ".preRotateW" attribute
 	//
 	Maxform::preRotateW = fnNumericAttr.create("preRotateW", "prw", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preRotateCategory));
 
 	// ".preRotate" attribute
 	//
 	Maxform::preRotate = fnNumericAttr.create("preRotate", "pr", Maxform::preRotateX, Maxform::preRotateY, Maxform::preRotateZ, Maxform::preRotateW, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preRotateCategory));
+
 	// ".preScaleX" attribute
 	//
 	Maxform::preScaleX = fnNumericAttr.create("preScaleX", "psx", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preScaleCategory));
 
 	// ".preScaleY" attribute
 	//
 	Maxform::preScaleY = fnNumericAttr.create("preScaleY", "psy", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preScaleCategory));
+
 	// ".preScaleZ" attribute
 	//
 	Maxform::preScaleZ = fnNumericAttr.create("preScaleZ", "psz", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preScaleCategory));
+
 	// ".preScale" attribute
 	//
 	Maxform::preScale = fnNumericAttr.create("preScale", "ps", Maxform::preScaleX, Maxform::preScaleY, Maxform::preScaleZ, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(Maxform::preScaleCategory));
 
 	// ".transform" attribute
 	//
@@ -375,49 +501,48 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnMatrixAttr.setAffectsWorldSpace(true));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::inputCategory));
 
 	// Output attributes:
 	// ".translationPart" attribute
 	//
-	Maxform::translationPart = fnMatrixAttr.create("translationPart", "tp", MFnMatrixAttribute::kDouble, &status);
+	Maxform::translationPart = fnMatrixAttr.create("translationPart", "tprt", MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::partsCategory));
 
 	// ".rotationPart" attribute
 	//
-	Maxform::rotationPart = fnMatrixAttr.create("rotationPart", "rp", MFnMatrixAttribute::kDouble, &status);
+	Maxform::rotationPart = fnMatrixAttr.create("rotationPart", "rprt", MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::partsCategory));
 
 	// ".scalePart" attribute
 	//
-	Maxform::scalePart = fnMatrixAttr.create("scalePart", "sp", MFnMatrixAttribute::kDouble, &status);
+	Maxform::scalePart = fnMatrixAttr.create("scalePart", "sprt", MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::partsCategory));
 
-	// ".matrix attribute"
+	// ".matrix" attribute
 	//
-	status = fnMatrixAttr.setObject(Maxform::matrix);
+	status = fnTypedAttr.setObject(Maxform::matrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::outputCategory));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::matrixCategory));
 
-	// ".inverseMatrix attribute"
+	// ".inverseMatrix" attribute
 	//
-	status = fnMatrixAttr.setObject(Maxform::inverseMatrix);
+	status = fnTypedAttr.setObject(Maxform::inverseMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::outputCategory));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::matrixCategory));
 
 	// Add attributes to node
 	//
@@ -440,9 +565,6 @@ Use this function to define any static attributes.
 
 	// Define attribute validations
 	//
-	Maxform::mustCallValidateAndSet(Maxform::preTranslate);
-	Maxform::mustCallValidateAndSet(Maxform::preRotate);
-	Maxform::mustCallValidateAndSet(Maxform::preScale);
 	Maxform::mustCallValidateAndSet(Maxform::transform);
 
 	return status;

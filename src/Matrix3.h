@@ -35,12 +35,14 @@ public:
 	virtual	MMatrix						asMatrix() const override;
 	virtual	MMatrix						asRotateMatrix() const override;
 	virtual	MMatrix						asScaleMatrix() const override;
-	virtual	MTransformationMatrix		asTransformationMatrix() const override;
 
-	virtual	void						updatePreTranslation(const MVector& preTranslate);
-	virtual	void						updatePreRotation(const MQuaternion& preRotate);
-	virtual	void						updatePreScale(const MVector& preScale);
-	virtual	void						updateTransform(const MMatrix& matrix);
+	virtual	void						setPreTranslation(const MVector& preTranslate);
+	virtual	void						setPreRotation(const MQuaternion& preRotate);
+	virtual	void						setPreScale(const MVector& preScale);
+	virtual	void						setTransform(const MMatrix& matrix);
+
+	virtual	void						enableOverride();
+	virtual	void						disableOverride();
 
 public:
 
@@ -48,10 +50,10 @@ public:
 	
 protected:
 			
-			MVector			preTranslate;
-			MQuaternion		preRotate;
-			MVector			preScale;
-			MMatrix			transform;
+			MVector			preTranslateValue;
+			MQuaternion		preRotateValue;
+			MVector			preScaleValue;
+			MMatrix			transformValue;
 			bool			overrideEnabled;
 	
 };

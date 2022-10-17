@@ -39,8 +39,8 @@ MString		ScaleList::preScaleCategory("PreScale");
 MTypeId		ScaleList::id(0x0013b1c7);
 
 
-ScaleList::ScaleList() { this->previousIndex = 0; this->activeIndex = 0; };
-ScaleList::~ScaleList() {};
+ScaleList::ScaleList() { this->prs = nullptr; this->previousIndex = 0; this->activeIndex = 0; };
+ScaleList::~ScaleList() { this->prs = nullptr; };
 
 
 MStatus ScaleList::compute(const MPlug& plug, MDataBlock& data) 
@@ -215,19 +215,28 @@ Another use for this method is to impose attribute limits.
 	MObject attribute = plug.attribute(&status);
 	CHECK_MSTATUS_AND_RETURN(status, false);
 
-	if (attribute == ScaleList::active)
+	bool isSceneLoading = Maxformations::isSceneLoading();
+
+	if (attribute == ScaleList::active && !isSceneLoading)
 	{
 
 		this->activeIndex = handle.asShort();
 
 	}
+	else if (attribute == ScaleList::active && isSceneLoading)
+	{
+
+		this->previousIndex = this->activeIndex = handle.asShort();
+
+	}
+	else;
 
 	return MPxNode::setInternalValue(plug, handle);
 
 };
 
 
-MStatus ScaleList::updateActiveController(MPlug& scalePlug)
+MStatus ScaleList::updateActiveController()
 /**
 Updates the active controller.
 
@@ -240,7 +249,9 @@ Updates the active controller.
 
 	// Redundancy check
 	//
-	if (this->previousIndex == this->activeIndex)
+	Maxform* maxform = this->maxformPtr();
+
+	if (this->previousIndex == this->activeIndex || maxform == nullptr)
 	{
 
 		return MS::kSuccess;  // Nothing to do here~!
@@ -265,7 +276,9 @@ Updates the active controller.
 	MPlug newPlug = newElement.child(ScaleList::scale, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Check if source plug has incoming connections
+	MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::scale);
+
+	// Check if scale plug has incoming connections
 	// If so, then move those connections back to the previous plug
 	//
 	status = Maxformations::breakConnections(previousPlug, true, false);
@@ -293,6 +306,106 @@ Updates the active controller.
 	this->previousIndex = this->activeIndex;
 
 	return MS::kSuccess;
+
+};
+
+
+MStatus ScaleList::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
+/**
+This method gets called when connections are made to attributes of this node.
+You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
+
+@param plug: Attribute on this node.
+@param otherPlug: Attribute on the other node.
+@param asSrc: Is this plug a source of the connection.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Inspect plug attribute
+	//
+	MObject attribute = plug.attribute(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MFnAttribute fnAttribute(attribute, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	bool isScale = fnAttribute.hasCategory(ScaleList::scaleCategory);
+
+	if ((isScale && asSrc) && this->prs == nullptr)
+	{
+
+		// Inspect other node
+		//
+		MObject otherNode = otherPlug.node(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MFnDependencyNode fnDependNode(otherNode, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MTypeId otherId = fnDependNode.typeId(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (otherId == PRS::id)
+		{
+
+			this->prs = static_cast<PRS*>(fnDependNode.userNode());
+
+		}
+
+	}
+
+	return MPxNode::connectionMade(plug, otherPlug, asSrc);
+
+};
+
+
+MStatus ScaleList::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
+/**
+This method gets called when connections are made to attributes of this node.
+You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
+
+@param plug: Attribute on this node.
+@param otherPlug: Attribute on the other node.
+@param asSrc: Is this plug a source of the connection.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Inspect plug attribute
+	//
+	MObject attribute = plug.attribute(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MFnAttribute fnAttribute(attribute, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	bool isScale = fnAttribute.hasCategory(PRS::scaleCategory);
+
+	if ((isScale && asSrc) && this->prs != nullptr)
+	{
+
+		// Check if plug is still partially connected
+		//
+		MPlug scalePlug = MPlug(this->prs->thisMObject(), PRS::scale);
+
+		bool isPartiallyConnected = Maxformations::isPartiallyConnected(scalePlug, true, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (!isPartiallyConnected)
+		{
+
+			this->prs = nullptr;
+
+		}
+
+	}
+
+	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 
@@ -517,6 +630,31 @@ Normalizes the passed weights so that the total sum equals 1.0.
 };
 
 
+Maxform* ScaleList::maxformPtr()
+/**
+Returns the maxform node associated with this list controller.
+If no maxform node exists then a null pointer is returned instead!
+
+@return: Maxform pointer.
+*/
+{
+
+	if (this->prs != nullptr)
+	{
+
+		return this->prs->maxformPtr();
+
+	}
+	else
+	{
+
+		return nullptr;
+
+	}
+
+}
+
+
 void* ScaleList::creator() 
 /**
 This function is called by Maya when a new instance is requested.
@@ -679,7 +817,7 @@ Use this function to define any static attributes.
 
 	// ".preValueX" attribute
 	//
-	ScaleList::preValueX = fnNumericAttr.create("preValueX", "vx", MFnNumericData::kDouble, 1.0, &status);
+	ScaleList::preValueX = fnNumericAttr.create("preValueX", "pvx", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
@@ -688,7 +826,7 @@ Use this function to define any static attributes.
 
 	// ".preValueY" attribute
 	//
-	ScaleList::preValueY = fnNumericAttr.create("preValueY", "vy", MFnNumericData::kDouble, 1.0, &status);
+	ScaleList::preValueY = fnNumericAttr.create("preValueY", "pvy", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
@@ -697,7 +835,7 @@ Use this function to define any static attributes.
 
 	// ".preValueZ" attribute
 	//
-	ScaleList::preValueZ = fnNumericAttr.create("preValueZ", "vz", MFnNumericData::kDouble, 1.0, &status);
+	ScaleList::preValueZ = fnNumericAttr.create("preValueZ", "pvz", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
@@ -706,7 +844,7 @@ Use this function to define any static attributes.
 
 	// ".preValue" attribute
 	//
-	ScaleList::preValue = fnNumericAttr.create("preValue", "v", ScaleList::preValueX, ScaleList::preValueY, ScaleList::preValueZ, &status);
+	ScaleList::preValue = fnNumericAttr.create("preValue", "pv", ScaleList::preValueX, ScaleList::preValueY, ScaleList::preValueZ, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
@@ -746,6 +884,10 @@ Use this function to define any static attributes.
 	// Define attribute relationships
 	//
 	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::active, ScaleList::preValue));
+	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::average, ScaleList::preValue));
+	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::weight, ScaleList::preValue));
+	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::absolute, ScaleList::preValue));
+	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::scale, ScaleList::preValue));
 
 	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::average, ScaleList::value));
 	CHECK_MSTATUS(ScaleList::attributeAffects(ScaleList::weight, ScaleList::value));

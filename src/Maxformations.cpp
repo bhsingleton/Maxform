@@ -1057,6 +1057,18 @@ namespace Maxformations
 
 		MStatus status;
 
+		// Check for null plugs
+		//
+		bool isNull = plug.isNull(&status) || otherPlug.isNull(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (isNull)
+		{
+
+			return MS::kFailure;
+
+		}
+
 		// Setup dag modifier
 		//
 		MDGModifier modifier;

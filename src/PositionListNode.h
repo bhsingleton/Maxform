@@ -9,7 +9,7 @@
 //
 
 #include "Maxformations.h"
-#include "Maxform.h"
+#include "PRSNode.h"
 
 #include <utility>
 #include <map>
@@ -55,7 +55,10 @@ public:
 	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
 
 	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
-	virtual	MStatus		updateActiveController(MPlug& translatePlug);
+	virtual	MStatus		updateActiveController();
+
+	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
 	static  void*		creator();
 	static  MStatus		initialize();
@@ -65,6 +68,8 @@ public:
 	static	MVector		sum(std::vector<PositionListItem>& items, const bool normalizeWeights);
 	static	void		normalize(std::vector<PositionListItem>& items);
 	
+	virtual	Maxform*	maxformPtr();
+
 public:
 
 	static	MObject		active;
@@ -98,7 +103,8 @@ public:
 	static	MTypeId		id;
 
 protected:
-
+			
+			PRS*			prs;
 			unsigned int	previousIndex;
 			unsigned int	activeIndex;
 

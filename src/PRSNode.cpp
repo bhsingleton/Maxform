@@ -40,34 +40,8 @@ MString		PRS::scaleCategory("Scale");
 MTypeId		PRS::id(0x0013b1cb);
 
 
-PRS::PRS() 
-{ 
-	
-	this->maxform = nullptr; 
-	this->positionList = nullptr; 
-	this->rotationList = nullptr; 
-	this->scaleList = nullptr; 
-
-	this->activePositionChangedId = NULL;
-	this->activeRotationChangedId = NULL;
-	this->activeScaleChangedId = NULL;
-
-};
-
-
-PRS::~PRS() 
-{ 
-	
-	this->maxform = nullptr; 
-	this->positionList = nullptr; 
-	this->rotationList = nullptr; 
-	this->scaleList = nullptr; 
-
-	this->activePositionChangedId = NULL;
-	this->activeRotationChangedId = NULL;
-	this->activeScaleChangedId = NULL;
-
-};
+PRS::PRS() { this->maxform = nullptr; };
+PRS::~PRS() { this->maxform = nullptr; };
 
 
 MStatus PRS::compute(const MPlug& plug, MDataBlock& data) 
@@ -208,81 +182,6 @@ Only these values should be used when performing computations!
 };
 
 
-void activePositionChanged(MNodeMessage::AttributeMessage message, MPlug& plug, MPlug& otherPlug, void* clientData)
-/**
-Callback to whenever the active index changes on the associated position-list.
-
-@param message: Type of message which caused the function to be called.
-@param plug: First plug. Meaning depends upon the specific message which invoked the callback.
-@param otherPlug: Second plug. Meaning depends upon the specific message which invoked the callback.
-@param clientData: Pointer to user-defined data supplied when the callback was registered.
-@return: void.
-*/
-{
-
-	MObject attribute = plug.attribute();
-
-	if (attribute == PositionList::active && message & MNodeMessage::kAttributeSet && clientData != nullptr)
-	{
-
-		PRS* prs = static_cast<PRS*>(clientData);
-		prs->updateActivePosition();
-
-	}
-
-};
-
-
-void activeRotationChanged(MNodeMessage::AttributeMessage message, MPlug& plug, MPlug& otherPlug, void* clientData)
-/**
-Callback to whenever the active index changes on the associated rotation-list.
-
-@param message: Type of message which caused the function to be called.
-@param plug: First plug. Meaning depends upon the specific message which invoked the callback.
-@param otherPlug: Second plug. Meaning depends upon the specific message which invoked the callback.
-@param clientData: Pointer to user-defined data supplied when the callback was registered.
-@return: void.
-*/
-{
-
-	MObject attribute = plug.attribute();
-
-	if (attribute == RotationList::active && message & MNodeMessage::kAttributeSet && clientData != nullptr)
-	{
-
-		PRS* prs = static_cast<PRS*>(clientData);
-		prs->updateActiveRotation();
-
-	}
-
-};
-
-
-void activeScaleChanged(MNodeMessage::AttributeMessage message, MPlug& plug, MPlug& otherPlug, void* clientData)
-/**
-Callback to whenever the active index changes on the associated scale-list.
-
-@param message: Type of message which caused the function to be called.
-@param plug: First plug. Meaning depends upon the specific message which invoked the callback.
-@param otherPlug: Second plug. Meaning depends upon the specific message which invoked the callback.
-@param clientData: Pointer to user-defined data supplied when the callback was registered.
-@return: void.
-*/
-{
-
-	MObject attribute = plug.attribute();
-
-	if (attribute == ScaleList::active && message & MNodeMessage::kAttributeSet && clientData != nullptr)
-	{
-
-		PRS* prs = static_cast<PRS*>(clientData);
-		prs->updateActiveScale();
-
-	}
-
-};
-
-
 MStatus PRS::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
 /**
 This method gets called when connections are made to attributes of this node.
@@ -299,17 +198,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isPosition = fnAttribute.hasCategory(PRS::positionCategory);
-	bool isRotation = fnAttribute.hasCategory(PRS::rotationCategory);
-	bool isScale = fnAttribute.hasCategory(PRS::scaleCategory);
-
-	if ((attribute == PRS::matrix && asSrc) && this->maxform == nullptr)
+	if ((plug == PRS::matrix && asSrc) && this->maxform == nullptr)
 	{
 
 		// Inspect other node
@@ -331,82 +220,6 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		}
 
 	}
-	else if ((isPosition && !asSrc) && this->positionList == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == PositionList::id)
-		{
-
-			this->positionList = static_cast<PositionList*>(fnDependNode.userNode());
-
-			this->activePositionChangedId = MNodeMessage::addAttributeChangedCallback(otherNode, activePositionChanged, this, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
-
-	}
-	else if ((isRotation && !asSrc) && this->rotationList == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == RotationList::id)
-		{
-
-			this->rotationList = static_cast<RotationList*>(fnDependNode.userNode());
-
-			this->activeRotationChangedId = MNodeMessage::addAttributeChangedCallback(otherNode, activeRotationChanged, this, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
-
-	}
-	else if ((isScale && !asSrc) && this->scaleList == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == ScaleList::id)
-		{
-
-			this->scaleList = static_cast<ScaleList*>(fnDependNode.userNode());
-
-			this->activeScaleChangedId = MNodeMessage::addAttributeChangedCallback(otherNode, activeScaleChanged, this, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
-
-	}
-	else;
 
 	return MPxNode::connectionMade(plug, otherPlug, asSrc);
 
@@ -429,156 +242,28 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isPosition = fnAttribute.hasCategory(PRS::positionCategory);
-	bool isRotation = fnAttribute.hasCategory(PRS::rotationCategory);
-	bool isScale = fnAttribute.hasCategory(PRS::scaleCategory);
-	
-	if ((attribute == PRS::matrix && asSrc) && this->maxform != nullptr)
+	if ((plug == PRS::matrix && asSrc) && this->maxform != nullptr)
 	{
 
-		// Remove pointer to maxform
-		//
 		this->maxform = nullptr;
 
 	}
-	else if ((isPosition && !asSrc) && this->positionList != nullptr)
-	{
-
-		// Check if plug is still partially connected
-		//
-		MPlug positionPlug = MPlug(this->thisMObject(), PRS::position);
-
-		bool isPartiallyConnected = Maxformations::isPartiallyConnected(positionPlug, true, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (!isPartiallyConnected)
-		{
-
-			this->positionList = nullptr;
-
-			status = MNodeMessage::removeCallback(this->activePositionChangedId);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
-
-	}
-	else if ((isRotation && !asSrc) && this->rotationList != nullptr)
-	{
-
-		// Check if plug is still partially connected
-		//
-		MPlug rotationPlug = MPlug(this->thisMObject(), PRS::rotation);
-
-		bool isPartiallyConnected = Maxformations::isPartiallyConnected(rotationPlug, true, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (!isPartiallyConnected)
-		{
-
-			this->rotationList = nullptr;
-
-			status = MNodeMessage::removeCallback(this->activeRotationChangedId);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
-
-	}
-	else if ((isScale && !asSrc) && this->scaleList != nullptr)
-	{
-
-		// Check if plug is still partially connected
-		//
-		MPlug scalePlug = MPlug(this->thisMObject(), PRS::scale);
-
-		bool isPartiallyConnected = Maxformations::isPartiallyConnected(scalePlug, true, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (!isPartiallyConnected)
-		{
-
-			this->scaleList = nullptr;
-
-			status = MNodeMessage::removeCallback(this->activeScaleChangedId);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
-
-	}
-	else;
 
 	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 
 
-void PRS::updateActivePosition()
+Maxform* PRS::maxformPtr()
 /**
-Updates the active position controller.
-This operation is only reserved for list controllers!
+Returns the maxform node associated with this prs controller.
+If no maxform node exists then a null pointer is returned instead!
 
-@return: void.
+@return: Maxform pointer.
 */
 {
 
-	bool isSceneLoading = Maxformations::isSceneLoading();
-
-	if ((this->positionList != nullptr && this->maxform != nullptr) && !isSceneLoading)
-	{
-
-		MPlug translatePlug = MPlug(this->maxform->thisMObject(), Maxform::translate);
-		this->positionList->updateActiveController(translatePlug);
-
-	}
-
-};
-
-
-void PRS::updateActiveRotation()
-/**
-Updates the active rotation controller.
-This operation is only reserved for list controllers!
-
-@return: void.
-*/
-{
-
-	bool isSceneLoading = Maxformations::isSceneLoading();
-
-	if ((this->rotationList != nullptr && this->maxform != nullptr) && !isSceneLoading)
-	{
-
-		MPlug rotatePlug = MPlug(this->maxform->thisMObject(), Maxform::rotate);
-		this->rotationList->updateActiveController(rotatePlug);
-
-	}
-
-};
-
-
-void PRS::updateActiveScale()
-/**
-Updates the active scale controller.
-This operation is only reserved for list controllers!
-
-@return: void.
-*/
-{
-
-	bool isSceneLoading = Maxformations::isSceneLoading();
-
-	if ((this->scaleList != nullptr && this->maxform != nullptr) && !isSceneLoading)
-	{
-
-		MPlug scalePlug = MPlug(this->maxform->thisMObject(), Maxform::scale);
-		this->scaleList->updateActiveController(scalePlug);
-
-	}
+	return this->maxform;
 
 };
 
@@ -639,7 +324,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
-	
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::positionCategory));
 
@@ -650,7 +334,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
-
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::positionCategory));
 	
@@ -661,7 +344,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
-
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::positionCategory));
 	
@@ -670,6 +352,8 @@ Use this function to define any static attributes.
 	PRS::position = fnNumericAttr.create("position", "p", PRS::x_position, PRS::y_position, PRS::z_position, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::positionCategory));
 
@@ -718,6 +402,8 @@ Use this function to define any static attributes.
 	PRS::rotation = fnNumericAttr.create("rotation", "r", PRS::x_rotation, PRS::y_rotation, PRS::z_rotation, PRS::w_rotation, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
 	
@@ -735,6 +421,8 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnEnumAttr.addField("xyx", 7));
 	CHECK_MSTATUS(fnEnumAttr.addField("yzy", 8));
 	CHECK_MSTATUS(fnEnumAttr.addField("zxz", 9));
+	CHECK_MSTATUS(fnEnumAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnEnumAttr.setKeyable(true));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::eulerRotationCategory));
 
@@ -773,6 +461,8 @@ Use this function to define any static attributes.
 	PRS::euler_rotation = fnNumericAttr.create("euler_rotation", "er", PRS::euler_x_rotation, PRS::euler_y_rotation, PRS::euler_z_rotation, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::eulerRotationCategory));
 
@@ -783,7 +473,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
-
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::scaleCategory));
 
@@ -794,7 +483,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
-
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::scaleCategory));
 	
@@ -805,7 +493,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
-
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::scaleCategory));
 	
@@ -814,6 +501,8 @@ Use this function to define any static attributes.
 	PRS::scale = fnNumericAttr.create("scale", "s", PRS::x_scale, PRS::y_scale, PRS::z_scale, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::scaleCategory));
 	
@@ -840,12 +529,14 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(PRS::addAttribute(PRS::position));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::rotation));
+	CHECK_MSTATUS(PRS::addAttribute(PRS::axisOrder));
+	CHECK_MSTATUS(PRS::addAttribute(PRS::euler_rotation));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::scale));
 
 	CHECK_MSTATUS(PRS::addAttribute(PRS::matrix));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::inverseMatrix));
 
-	// Define position attribute relationships
+	// Define attribute relationships
 	//
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::matrix));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::matrix));

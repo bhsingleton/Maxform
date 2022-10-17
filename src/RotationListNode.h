@@ -9,6 +9,7 @@
 //
 
 #include "Maxformations.h"
+#include "PRSNode.h"
 
 #include <utility>
 #include <map>
@@ -55,7 +56,10 @@ public:
 	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
 
 	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
-	virtual	MStatus		updateActiveController(MPlug& rotatePlug);
+	virtual	MStatus		updateActiveController();
+
+	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
 	static  void*		creator();
 	static  MStatus		initialize();
@@ -64,6 +68,8 @@ public:
 	static	MQuaternion	sum(MArrayDataHandle& handle, const unsigned int active, const bool normalizeWeights, MStatus* status);
 	static	MQuaternion	sum(std::vector<RotationListItem>& items, const bool normalizeWeights);
 	static	void		normalize(std::vector<RotationListItem>& items);
+
+	virtual	Maxform*	maxformPtr();
 
 public:
 
@@ -101,7 +107,8 @@ public:
 	static	MTypeId		id;
 	
 protected:
-
+			
+			PRS*			prs;
 			unsigned int	previousIndex;;
 			unsigned int	activeIndex;
 

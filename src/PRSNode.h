@@ -10,9 +10,6 @@
 
 #include "Maxformations.h"
 #include "Maxform.h"
-#include "PositionListNode.h"
-#include "RotationListNode.h"
-#include "ScaleListNode.h"
 
 #include <utility>
 #include <map>
@@ -51,12 +48,9 @@ public:
 	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
-	virtual	void		updateActivePosition();
-	virtual	void		updateActiveRotation();
-	virtual	void		updateActiveScale();
-
+	virtual	Maxform*	maxformPtr();
 	virtual	void		updateMaxformPtr(Maxform* maxform);
-
+	
 	static  void*		creator();
 	static  MStatus		initialize();
 
@@ -97,14 +91,6 @@ public:
 
 protected:
 			
-			PositionList*	positionList;
-			RotationList*	rotationList;
-			ScaleList*		scaleList;
-
-			MCallbackId		activePositionChangedId;
-			MCallbackId		activeRotationChangedId;
-			MCallbackId		activeScaleChangedId;
-
 			Maxform*		maxform;
 
 };
