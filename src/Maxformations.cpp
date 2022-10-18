@@ -717,6 +717,20 @@ namespace Maxformations
 
 	};
 
+	MQuaternion eulerAnglesToQuaternion(const MVector& radians, const AxisOrder axisOrder)
+	/**
+	Converts the supplied euler angles into a quaternion.
+
+	@param radians: The XYZ values in radians.
+	@param axisOrder: The axis order.
+	@return: The transform orientation as a quaternion.
+	*/
+	{
+
+		return matrixToQuaternion(createRotationMatrix(radians, axisOrder));
+
+	};
+
 	MQuaternion matrixToQuaternion(const MMatrix& matrix)
 	/**
 	Converts the supplied transform matrix into a quaternion.

@@ -24,12 +24,10 @@ MObject		RotationList::value;
 MObject		RotationList::valueX;
 MObject		RotationList::valueY;
 MObject		RotationList::valueZ;
-MObject		RotationList::valueW;
 MObject		RotationList::preValue;
 MObject		RotationList::preValueX;
 MObject		RotationList::preValueY;
 MObject		RotationList::preValueZ;
-MObject		RotationList::preValueW;
 MObject		RotationList::matrix;
 MObject		RotationList::inverseMatrix;
 
@@ -88,8 +86,11 @@ Only these values should be used when performing computations!
 		// Calculate weighted average
 		//
 		MQuaternion quat = RotationList::sum(listHandle, normalizeWeights, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
 		MMatrix matrix = quat.asMatrix();
-		
+		MVector eulerAngles = Maxformations::matrixToEulerAngles(matrix, Maxformations::AxisOrder::xyz);
+
 		// Get output data handles
 		//
 		MDataHandle valueXHandle = data.outputValue(RotationList::valueX, &status);
@@ -101,9 +102,6 @@ Only these values should be used when performing computations!
 		MDataHandle valueZHandle = data.outputValue(RotationList::valueZ, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MDataHandle valueWHandle = data.outputValue(RotationList::valueW, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
 		MDataHandle matrixHandle = data.outputValue(RotationList::matrix, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -112,17 +110,14 @@ Only these values should be used when performing computations!
 
 		// Set output handle values
 		//
-		valueXHandle.setDouble(quat.x);
+		valueXHandle.setDouble(eulerAngles.x);
 		valueXHandle.setClean();
-		
-		valueYHandle.setDouble(quat.y);
-		valueYHandle.setClean();
-		
-		valueZHandle.setDouble(quat.z);
-		valueZHandle.setClean();
 
-		valueWHandle.setDouble(quat.w);
-		valueWHandle.setClean();
+		valueYHandle.setDouble(eulerAngles.y);
+		valueYHandle.setClean();
+
+		valueZHandle.setDouble(eulerAngles.z);
+		valueZHandle.setClean();
 
 		matrixHandle.setMMatrix(matrix);
 		matrixHandle.setClean();
@@ -162,6 +157,9 @@ Only these values should be used when performing computations!
 		MQuaternion quat = RotationList::sum(listHandle, active - 1, normalizeWeights, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
+		MMatrix matrix = quat.asMatrix();
+		MVector eulerAngles = Maxformations::matrixToEulerAngles(matrix, Maxformations::AxisOrder::xyz);
+
 		// Get output data handles
 		//
 		MDataHandle preValueXHandle = data.outputValue(RotationList::preValueX, &status);
@@ -173,22 +171,16 @@ Only these values should be used when performing computations!
 		MDataHandle preValueZHandle = data.outputValue(RotationList::preValueZ, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MDataHandle preValueWHandle = data.outputValue(RotationList::preValueW, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
 		// Set output handle preValues
 		//
-		preValueXHandle.setDouble(quat.x);
+		preValueXHandle.setDouble(eulerAngles.x);
 		preValueXHandle.setClean();
 
-		preValueYHandle.setDouble(quat.y);
+		preValueYHandle.setDouble(eulerAngles.y);
 		preValueYHandle.setClean();
 
-		preValueZHandle.setDouble(quat.z);
+		preValueZHandle.setDouble(eulerAngles.z);
 		preValueZHandle.setClean();
-
-		preValueWHandle.setDouble(quat.w);
-		preValueWHandle.setClean();
 
 		// Mark plug as clean
 		//
@@ -282,37 +274,30 @@ Updates the active controller.
 	MPlug newElement = listPlug.elementByLogicalIndex(this->activeIndex, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Get child plugs
+	// Update axis-order plugs
 	//
-	MPlug previousPlug = previousElement.child(RotationList::rotation, &status);
+	MPlug previousPlug = previousElement.child(RotationList::axisOrder, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MPlug newPlug = newElement.child(RotationList::rotation, &status);
+	MPlug newPlug = newElement.child(RotationList::axisOrder, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MPlug rotatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
+	MPlug axisOrderPlug = MPlug(maxform->thisMObject(), Maxform::axisOrder);
 
-	// Check if rotate plug has incoming connections
-	// If so, then move those connections back to the previous plug
+	status = this->updateActiveController(axisOrderPlug, previousPlug, newPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Update rotation plugs
 	//
-	status = Maxformations::breakConnections(previousPlug, true, false);
+	previousPlug = previousElement.child(RotationList::rotation, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = Maxformations::transferConnections(rotatePlug, previousPlug);
+	newPlug = newElement.child(RotationList::rotation, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Check if new plug has incoming connections
-	// If so, then move those connections to the rotate plug
-	//
-	status = Maxformations::transferValues(newPlug, rotatePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug rotatePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
 
-	status = Maxformations::transferConnections(newPlug, rotatePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Connect translate plug to new plug
-	//
-	status = Maxformations::connectPlugs(rotatePlug, newPlug, true);
+	status = this->updateActiveController(rotatePlug, previousPlug, newPlug);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Update internal tracker
@@ -320,6 +305,47 @@ Updates the active controller.
 	this->previousIndex = this->activeIndex;
 
 	return MS::kSuccess;
+
+};
+
+
+MStatus RotationList::updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug)
+/**
+Updates the active controller.
+
+@param sourcePlug: The source plug that drives this controller.
+@param previousPlug: The plug that represents the previously active controller.
+@param newPlug: The plug that represents the new active controller.
+@return: Status code.
+*/
+{
+
+	MStatus status;
+
+	// Check if rotate plug has incoming connections
+	// If so, then move those connections back to the previous plug
+	//
+	status = Maxformations::breakConnections(previousPlug, true, false);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(sourcePlug, previousPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Check if new plug has incoming connections
+	// If so, then move those connections to the source plug
+	//
+	status = Maxformations::transferValues(newPlug, sourcePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(newPlug, sourcePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Connect source plug to new plug
+	//
+	status = Maxformations::connectPlugs(sourcePlug, newPlug, true);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
 
 };
 
@@ -706,13 +732,16 @@ Use this function to define any static attributes.
 	RotationList::active = fnNumericAttr.create("active", "a", MFnNumericData::kInt, 0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.setMin(0));
 	CHECK_MSTATUS(fnNumericAttr.setInternal(true));
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
 
 	// ".average" attribute
 	//
 	RotationList::average = fnNumericAttr.create("average", "avg", MFnNumericData::kBoolean, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::inputCategory));
 
 	// ".name" attribute
@@ -811,43 +840,34 @@ Use this function to define any static attributes.
 	// Output attributes:
 	// ".valueX" attribute
 	//
-	RotationList::valueX = fnNumericAttr.create("valueX", "vx", MFnNumericData::kDouble, 0.0, &status);
+	RotationList::valueX = fnUnitAttr.create("valueX", "vx", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::outputCategory));
+	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
+	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::outputCategory));
 
 	// ".valueY" attribute
 	//
-	RotationList::valueY = fnNumericAttr.create("valueY", "vy", MFnNumericData::kDouble, 0.0, &status);
+	RotationList::valueY = fnUnitAttr.create("valueY", "vy", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::outputCategory));
+	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
+	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::outputCategory));
 
 	// ".valueZ" attribute
 	//
-	RotationList::valueZ = fnNumericAttr.create("valueZ", "vz", MFnNumericData::kDouble, 0.0, &status);
+	RotationList::valueZ = fnUnitAttr.create("valueZ", "vz", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::outputCategory));
-
-	// ".valueW" attribute
-	//
-	RotationList::valueW = fnNumericAttr.create("valueW", "vw", MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::outputCategory));
+	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
+	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::outputCategory));
 
 	// ".value" attribute
 	//
-	RotationList::value = fnNumericAttr.create("value", "v", RotationList::valueX, RotationList::valueY, RotationList::valueZ, RotationList::valueW, &status);
+	RotationList::value = fnNumericAttr.create("value", "v", RotationList::valueX, RotationList::valueY, RotationList::valueZ, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
@@ -856,43 +876,34 @@ Use this function to define any static attributes.
 
 	// ".preValueX" attribute
 	//
-	RotationList::preValueX = fnNumericAttr.create("preValueX", "pvx", MFnNumericData::kDouble, 0.0, &status);
+	RotationList::preValueX = fnUnitAttr.create("preValueX", "pvx", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
+	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preRotationCategory));
 
 	// ".preValueY" attribute
 	//
-	RotationList::preValueY = fnNumericAttr.create("preValueY", "pvy", MFnNumericData::kDouble, 0.0, &status);
+	RotationList::preValueY = fnUnitAttr.create("preValueY", "pvy", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
+	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preRotationCategory));
 
 	// ".preValueZ" attribute
 	//
-	RotationList::preValueZ = fnNumericAttr.create("preValueZ", "pvz", MFnNumericData::kDouble, 0.0, &status);
+	RotationList::preValueZ = fnUnitAttr.create("preValueZ", "pvz", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::preRotationCategory));
-
-	// ".preValueW" attribute
-	//
-	RotationList::preValueW = fnNumericAttr.create("preValueW", "pvw", MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
+	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preRotationCategory));
 
 	// ".preValue" attribute
 	//
-	RotationList::preValue = fnNumericAttr.create("preValue", "pv", RotationList::preValueX, RotationList::preValueY, RotationList::preValueZ, RotationList::preValueW, &status);
+	RotationList::preValue = fnNumericAttr.create("preValue", "pv", RotationList::preValueX, RotationList::preValueY, RotationList::preValueZ, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));

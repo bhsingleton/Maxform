@@ -108,6 +108,7 @@ namespace Maxformations
 	MVector		matrixToEulerZXZ(const MMatrix& matrix);
 	MVector		matrixToEulerAngles(const MMatrix& matrix, const AxisOrder axisOrder);
 
+	MQuaternion	eulerAnglesToQuaternion(const MVector& radians, const AxisOrder axisOrder);
 	MQuaternion	matrixToQuaternion(const MMatrix& matrix);
 	double		dot(const MQuaternion& quat, const MQuaternion& otherQuat);
 	MQuaternion	slerp(const MQuaternion& startQuat, const MQuaternion& endQuat, const float weight);

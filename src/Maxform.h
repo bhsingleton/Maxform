@@ -24,6 +24,7 @@
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnTypedAttribute.h>
+#include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnNumericData.h>
 #include <maya/MEvaluationNode.h>
@@ -59,30 +60,20 @@ public:
 	
 public:
 	
-	static	MObject		preTranslate;
-	static	MObject		preTranslateX;
-	static	MObject		preTranslateY;
-	static	MObject		preTranslateZ;
+	static	MObject		axisOrder;
 	static	MObject		preRotate;
 	static	MObject		preRotateX;
 	static	MObject		preRotateY;
 	static	MObject		preRotateZ;
-	static	MObject		preRotateW;
-	static	MObject		preScale;
-	static	MObject		preScaleX;
-	static	MObject		preScaleY;
-	static	MObject		preScaleZ;
 	static	MObject		transform;
 
 	static	MObject		translationPart;
 	static	MObject		rotationPart;
 	static	MObject		scalePart;
 
+	static	MString		preRotateCategory;
 	static	MString		matrixCategory;
 	static	MString		partsCategory;
-	static	MString		preTranslateCategory;
-	static	MString		preRotateCategory;
-	static	MString		preScaleCategory;
 
 	static	MTypeId		id;
 	static	MString		classification;

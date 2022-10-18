@@ -57,6 +57,7 @@ public:
 
 	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
 	virtual	MStatus		updateActiveController();
+	virtual	MStatus		updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug);
 
 	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
@@ -89,12 +90,10 @@ public:
 	static	MObject		valueX;
 	static	MObject		valueY;
 	static	MObject		valueZ;
-	static	MObject		valueW;
 	static	MObject		preValue;
 	static	MObject		preValueX;
 	static	MObject		preValueY;
 	static	MObject		preValueZ;
-	static	MObject		preValueW;
 	static	MObject		matrix;
 	static	MObject		inverseMatrix;
 

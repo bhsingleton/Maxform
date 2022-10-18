@@ -12,16 +12,11 @@ MObject		PRS::position;
 MObject		PRS::x_position;
 MObject		PRS::y_position;
 MObject		PRS::z_position;
+MObject		PRS::axisOrder;
 MObject		PRS::rotation;
 MObject		PRS::x_rotation;
 MObject		PRS::y_rotation;
 MObject		PRS::z_rotation;
-MObject		PRS::w_rotation;
-MObject		PRS::axisOrder;
-MObject		PRS::euler_rotation;
-MObject		PRS::euler_x_rotation;
-MObject		PRS::euler_y_rotation;
-MObject		PRS::euler_z_rotation;
 MObject		PRS::scale;
 MObject		PRS::x_scale;
 MObject		PRS::y_scale;
@@ -80,23 +75,15 @@ Only these values should be used when performing computations!
 		MDataHandle yPositionHandle = positionHandle.child(PRS::y_position);
 		MDataHandle zPositionHandle = positionHandle.child(PRS::z_position);
 		
+		MDataHandle axisOrderHandle = data.inputValue(PRS::axisOrder, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
 		MDataHandle rotationHandle = data.inputValue(PRS::rotation, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		
 		MDataHandle xRotationHandle = rotationHandle.child(PRS::x_rotation);
 		MDataHandle yRotationHandle = rotationHandle.child(PRS::y_rotation);
 		MDataHandle zRotationHandle = rotationHandle.child(PRS::z_rotation);
-		MDataHandle wRotationHandle = rotationHandle.child(PRS::w_rotation);
-
-		MDataHandle axisOrderHandle = data.inputValue(PRS::axisOrder, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle eulerRotationHandle = data.inputValue(PRS::euler_rotation, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle xEulerRotationHandle = eulerRotationHandle.child(PRS::euler_x_rotation);
-		MDataHandle yEulerRotationHandle = eulerRotationHandle.child(PRS::euler_y_rotation);
-		MDataHandle zEulerRotationHandle = eulerRotationHandle.child(PRS::euler_z_rotation);
 
 		MDataHandle scaleHandle = data.inputValue(PRS::scale, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -115,21 +102,12 @@ Only these values should be used when performing computations!
 		
 		// Get rotation value
 		//
-		double xRotation = xRotationHandle.asDouble();
-		double yRotation = yRotationHandle.asDouble();
-		double zRotation = zRotationHandle.asDouble();
-		double wRotation = wRotationHandle.asDouble();
-
-		MQuaternion rotation = MQuaternion(xRotation, yRotation, zRotation, wRotation);
-
-		// Get euler rotation value
-		//
-		double xEulerRotation = xEulerRotationHandle.asAngle().asRadians();
-		double yEulerRotation = yEulerRotationHandle.asAngle().asRadians();
-		double zEulerRotation = zEulerRotationHandle.asAngle().asRadians();
+		double xRotation = xRotationHandle.asAngle().asRadians();
+		double yRotation = yRotationHandle.asAngle().asRadians();
+		double zRotation = zRotationHandle.asAngle().asRadians();
 
 		Maxformations::AxisOrder axisOrder = Maxformations::AxisOrder(axisOrderHandle.asShort());
-		MVector eulerRotation = MVector(xEulerRotation, yEulerRotation, zEulerRotation);
+		MVector eulerRotation = MVector(xRotation, yRotation, zRotation);
 
 		// Get scale value
 		//
@@ -142,11 +120,10 @@ Only these values should be used when performing computations!
 		// Compose transform matrix
 		//
 		MMatrix positionMatrix = Maxformations::createPositionMatrix(position);
-		MMatrix rotationMatrix = rotation.asMatrix();
-		MMatrix eulerRotationMatrix = Maxformations::createRotationMatrix(eulerRotation, axisOrder);
+		MMatrix rotationMatrix = Maxformations::createRotationMatrix(eulerRotation, axisOrder);
 		MMatrix scaleMatrix = Maxformations::createScaleMatrix(scale);
 
-		MMatrix matrix = scaleMatrix * (rotationMatrix * eulerRotationMatrix) * positionMatrix;
+		MMatrix matrix = scaleMatrix * rotationMatrix * positionMatrix;
 		
 		// Get output data handles
 		//
@@ -352,61 +329,9 @@ Use this function to define any static attributes.
 	PRS::position = fnNumericAttr.create("position", "p", PRS::x_position, PRS::y_position, PRS::z_position, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::positionCategory));
 
-	// ".x_rotation" attribute
-	//
-	PRS::x_rotation = fnNumericAttr.create("x_rotation", "xr", MFnNumericData::kDouble, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
-
-	// ".y_rotation" attribute
-	//
-	PRS::y_rotation = fnNumericAttr.create("y_rotation", "yr", MFnNumericData::kDouble, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
-
-	// ".z_rotation" attribute
-	//
-	PRS::z_rotation = fnNumericAttr.create("z_rotation", "zr", MFnNumericData::kDouble, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
-	
-	// ".w_rotation" attribute
-	//
-	PRS::w_rotation = fnNumericAttr.create("w_rotation", "wr", MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
-
-	// ".rotation" attribute
-	//
-	PRS::rotation = fnNumericAttr.create("rotation", "r", PRS::x_rotation, PRS::y_rotation, PRS::z_rotation, PRS::w_rotation, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
-	
 	// ".axisOrder" attribute
 	//
 	PRS::axisOrder = fnEnumAttr.create("axisOrder", "ao", short(1), &status);
@@ -422,50 +347,47 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnEnumAttr.addField("yzy", 8));
 	CHECK_MSTATUS(fnEnumAttr.addField("zxz", 9));
 	CHECK_MSTATUS(fnEnumAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnEnumAttr.setKeyable(true));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::eulerRotationCategory));
 
-	// ".euler_x_rotation" attribute
+	// ".x_rotation" attribute
 	//
-	PRS::euler_x_rotation = fnUnitAttr.create("euler_x_rotation", "exr", MFnUnitAttribute::kAngle, 0.0, &status);
+	PRS::x_rotation = fnUnitAttr.create("x_rotation", "xr", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::eulerRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::rotationCategory));
 
-	// ".euler_y_rotation" attribute
+	// ".y_rotation" attribute
 	//
-	PRS::euler_y_rotation = fnUnitAttr.create("euler_y_rotation", "eyr", MFnUnitAttribute::kAngle, 0.0, &status);
+	PRS::y_rotation = fnUnitAttr.create("y_rotation", "yr", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::eulerRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::rotationCategory));
 
-	// ".euler_z_rotation" attribute
+	// ".z_rotation" attribute
 	//
-	PRS::euler_z_rotation = fnUnitAttr.create("euler_z_rotation", "ezr", MFnUnitAttribute::kAngle, 0.0, &status);
+	PRS::z_rotation = fnUnitAttr.create("z_rotation", "zr", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::eulerRotationCategory));
-
-	// ".euler_rotation" attribute
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::rotationCategory));
+	
+	// ".rotation" attribute
 	//
-	PRS::euler_rotation = fnNumericAttr.create("euler_rotation", "er", PRS::euler_x_rotation, PRS::euler_y_rotation, PRS::euler_z_rotation, &status);
+	PRS::rotation = fnNumericAttr.create("rotation", "r", PRS::x_rotation, PRS::y_rotation, PRS::z_rotation, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::eulerRotationCategory));
-
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
+	
 	// ".x_scale" attribute
 	//
 	PRS::x_scale = fnNumericAttr.create("x_scale", "xs", MFnNumericData::kDouble, 1.0, &status);
@@ -501,8 +423,6 @@ Use this function to define any static attributes.
 	PRS::scale = fnNumericAttr.create("scale", "s", PRS::x_scale, PRS::y_scale, PRS::z_scale, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
-	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::scaleCategory));
 	
@@ -529,9 +449,8 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(PRS::addAttribute(PRS::position));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::rotation));
-	CHECK_MSTATUS(PRS::addAttribute(PRS::axisOrder));
-	CHECK_MSTATUS(PRS::addAttribute(PRS::euler_rotation));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::scale));
+	CHECK_MSTATUS(PRS::addAttribute(PRS::axisOrder));
 
 	CHECK_MSTATUS(PRS::addAttribute(PRS::matrix));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::inverseMatrix));
@@ -539,15 +458,13 @@ Use this function to define any static attributes.
 	// Define attribute relationships
 	//
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::matrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::matrix));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::axisOrder, PRS::matrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::euler_rotation, PRS::matrix));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::matrix));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::scale, PRS::matrix));
 
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::inverseMatrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::inverseMatrix));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::axisOrder, PRS::inverseMatrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::euler_rotation, PRS::inverseMatrix));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::inverseMatrix));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::scale, PRS::inverseMatrix));
 
 	return status;

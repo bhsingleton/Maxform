@@ -14,10 +14,8 @@ Matrix3::Matrix3()
 { 
 	
 	this->transformValue = MMatrix::identity; 
-	this->preTranslateValue = MVector::zero; 
-	this->preRotateValue = MQuaternion::identity;
-	this->preScaleValue = MVector::one;
-	this->overrideEnabled = false;
+	this->preRotationValue = MQuaternion::identity;
+	this->enabled = false;
 
 };
 
@@ -50,10 +48,10 @@ The rotate orientation orients the local rotation space.
 */
 {
 
-	if (this->overrideEnabled)
+	if (this->enabled)
 	{
 
-		return this->preRotateValue;
+		return this->preRotationValue;
 
 	}
 	else
@@ -77,7 +75,7 @@ The rotate orientation orients the local rotation space.
 */
 {
 	
-	if (this->overrideEnabled && space == MSpace::kTransform)
+	if (this->enabled && space == MSpace::kTransform)
 	{
 
 		MQuaternion quat;
@@ -104,7 +102,7 @@ Returns the four by four matrix that describes this transformation.
 */
 {
 	
-	if (this->overrideEnabled)
+	if (this->enabled)
 	{
 		
 		return this->transformValue;
@@ -128,7 +126,7 @@ Returns the rotate section of the transformation matrix.
 */
 {
 
-	if (this->overrideEnabled)
+	if (this->enabled)
 	{
 
 		return Maxformations::createRotationMatrix(this->transformValue);
@@ -153,7 +151,7 @@ The scale matrix takes points from object space to the space immediately followi
 */
 {
 
-	if (this->overrideEnabled)
+	if (this->enabled)
 	{
 
 		return Maxformations::createScaleMatrix(this->transformValue);
@@ -169,21 +167,31 @@ The scale matrix takes points from object space to the space immediately followi
 };
 
 
-void Matrix3::setPreTranslation(const MVector& preTranslate)
+MTransformationMatrix Matrix3::asTransformationMatrix() const
 /**
-Updates the internal pre-rotation quaternion.
+Returns the custom transformation matrix as a standard MTransformationMatrix.
 
-@param matrix: The new pre-rotation quaternion.
-@return: Void.
+@return: The transformation matrix.
 */
 {
 
-	this->preTranslateValue = preTranslate;
+	if (this->enabled)
+	{
+
+		return MTransformationMatrix(this->transformValue);
+
+	}
+	else
+	{
+
+		return MPxTransformationMatrix::asTransformationMatrix();
+
+	}
 
 };
 
 
-void Matrix3::setPreRotation(const MQuaternion& preRotate)
+void Matrix3::setPreRotation(const MQuaternion& preRotation)
 /**
 Updates the internal pre-rotation quaternion.
 
@@ -192,21 +200,7 @@ Updates the internal pre-rotation quaternion.
 */
 {
 
-	this->preRotateValue = preRotate;
-
-};
-
-
-void Matrix3::setPreScale(const MVector& preScale)
-/**
-Updates the internal pre-rotation quaternion.
-
-@param matrix: The new pre-rotation quaternion.
-@return: Void.
-*/
-{
-
-	this->preScaleValue = preScale;
+	this->preRotationValue = preRotation;
 
 };
 
@@ -225,21 +219,20 @@ Updates the internal transformation matrix.
 };
 
 
-void Matrix3::enableOverride()
+bool Matrix3::isEnabled()
 /**
-Updates the internal transformation matrix.
+Evaluates if the transform value is overriding the default values.
 
-@param matrix: The new transformation matrix.
-@return: Void.
+@return: Enabled.
 */
 {
 
-	this->overrideEnabled = true;
+	return this->enabled;
 
 };
 
 
-void Matrix3::disableOverride()
+void Matrix3::enable()
 /**
 Updates the internal transformation matrix.
 
@@ -248,6 +241,20 @@ Updates the internal transformation matrix.
 */
 {
 
-	this->overrideEnabled = false;
+	this->enabled = true;
+
+};
+
+
+void Matrix3::disable()
+/**
+Updates the internal transformation matrix.
+
+@param matrix: The new transformation matrix.
+@return: Void.
+*/
+{
+
+	this->enabled = false;
 
 };

@@ -60,16 +60,11 @@ public:
 	static	MObject		x_position;
 	static	MObject		y_position;
 	static	MObject		z_position;
+	static	MObject		axisOrder;
 	static	MObject		rotation;
 	static	MObject		x_rotation;
 	static	MObject		y_rotation;
 	static	MObject		z_rotation;
-	static	MObject		w_rotation;
-	static	MObject		axisOrder;
-	static	MObject		euler_rotation;
-	static	MObject		euler_x_rotation;
-	static	MObject		euler_y_rotation;
-	static	MObject		euler_z_rotation;
 	static	MObject		scale;
 	static	MObject		x_scale;
 	static	MObject		y_scale;

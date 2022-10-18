@@ -56,6 +56,7 @@ public:
 
 	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
 	virtual	MStatus		updateActiveController();
+	virtual	MStatus		updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug);
 
 	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);

@@ -269,7 +269,7 @@ Updates the active controller.
 	MPlug newElement = listPlug.elementByLogicalIndex(this->activeIndex, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Get child plugs
+	// Update position plugs
 	//
 	MPlug previousPlug = previousElement.child(PositionList::position, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -279,27 +279,7 @@ Updates the active controller.
 
 	MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
 
-	// Check if translate plug has incoming connections
-	// If so, then move those connections back to the previous plug
-	//
-	status = Maxformations::breakConnections(previousPlug, true, false);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = Maxformations::transferConnections(translatePlug, previousPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Check if new plug has incoming connections
-	// If so, then move those connections to the translate plug
-	//
-	status = Maxformations::transferValues(newPlug, translatePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = Maxformations::transferConnections(newPlug, translatePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Connect translate plug to new plug
-	//
-	status = Maxformations::connectPlugs(translatePlug, newPlug, true);
+	status = this->updateActiveController(translatePlug, previousPlug, newPlug);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Update internal tracker
@@ -307,6 +287,47 @@ Updates the active controller.
 	this->previousIndex = this->activeIndex;
 
 	return MS::kSuccess;
+
+};
+
+
+MStatus PositionList::updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug)
+/**
+Updates the active controller.
+
+@param sourcePlug: The source plug that drives this controller.
+@param previousPlug: The plug that represents the previously active controller.
+@param newPlug: The plug that represents the new active controller.
+@return: Status code.
+*/
+{
+
+	MStatus status;
+
+	// Check if rotate plug has incoming connections
+	// If so, then move those connections back to the previous plug
+	//
+	status = Maxformations::breakConnections(previousPlug, true, false);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(sourcePlug, previousPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Check if new plug has incoming connections
+	// If so, then move those connections to the source plug
+	//
+	status = Maxformations::transferValues(newPlug, sourcePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(newPlug, sourcePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Connect source plug to new plug
+	//
+	status = Maxformations::connectPlugs(sourcePlug, newPlug, true);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
 
 };
 
@@ -687,12 +708,14 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setMin(0));
 	CHECK_MSTATUS(fnNumericAttr.setInternal(true));
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
 
 	// ".average" attribute
 	//
 	PositionList::average = fnNumericAttr.create("average", "avg", MFnNumericData::kBoolean, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::inputCategory));
 
 	// ".name" attribute
