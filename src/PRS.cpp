@@ -6,37 +6,32 @@
 // Author: Benjamin H. Singleton
 //
 
-#include "PRSNode.h"
+#include "PRS.h"
 
-MObject		PRS::position;
-MObject		PRS::x_position;
-MObject		PRS::y_position;
-MObject		PRS::z_position;
-MObject		PRS::axisOrder;
-MObject		PRS::rotation;
-MObject		PRS::x_rotation;
-MObject		PRS::y_rotation;
-MObject		PRS::z_rotation;
-MObject		PRS::scale;
-MObject		PRS::x_scale;
-MObject		PRS::y_scale;
-MObject		PRS::z_scale;
+MObject	PRS::position;
+MObject	PRS::x_position;
+MObject	PRS::y_position;
+MObject	PRS::z_position;
+MObject	PRS::axisOrder;
+MObject	PRS::rotation;
+MObject	PRS::x_rotation;
+MObject	PRS::y_rotation;
+MObject	PRS::z_rotation;
+MObject	PRS::scale;
+MObject	PRS::x_scale;
+MObject	PRS::y_scale;
+MObject	PRS::z_scale;
 
-MObject		PRS::matrix;
-MObject		PRS::inverseMatrix;
+MString	PRS::inputCategory("Input");
+MString	PRS::positionCategory("Position");
+MString	PRS::rotationCategory("Rotation");
+MString	PRS::scaleCategory("Scale");
 
-MString		PRS::inputCategory("Input");
-MString		PRS::outputCategory("Output");
-MString		PRS::positionCategory("Position");
-MString		PRS::rotationCategory("Rotation");
-MString		PRS::eulerRotationCategory("EulerRotation");
-MString		PRS::scaleCategory("Scale");
-
-MTypeId		PRS::id(0x0013b1cb);
+MTypeId	PRS::id(0x0013b1cb);
 
 
-PRS::PRS() { this->maxform = nullptr; };
-PRS::~PRS() { this->maxform = nullptr; };
+PRS::PRS() { this->matrix3Controller = nullptr; };
+PRS::~PRS() { this->matrix3Controller = nullptr; };
 
 
 MStatus PRS::compute(const MPlug& plug, MDataBlock& data) 
@@ -57,13 +52,7 @@ Only these values should be used when performing computations!
 
 	// Evaluate requested plug
 	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	if (fnAttribute.hasCategory(PRS::outputCategory))
+	if (plug == PRS::value)
 	{
 		
 		// Get input data handles
@@ -106,8 +95,8 @@ Only these values should be used when performing computations!
 		double yRotation = yRotationHandle.asAngle().asRadians();
 		double zRotation = zRotationHandle.asAngle().asRadians();
 
-		Maxformations::AxisOrder axisOrder = Maxformations::AxisOrder(axisOrderHandle.asShort());
-		MVector eulerRotation = MVector(xRotation, yRotation, zRotation);
+		MEulerRotation::RotationOrder axisOrder = MEulerRotation::RotationOrder(axisOrderHandle.asShort());
+		MEulerRotation eulerRotation = MEulerRotation(xRotation, yRotation, zRotation, axisOrder);
 
 		// Get scale value
 		//
@@ -120,26 +109,20 @@ Only these values should be used when performing computations!
 		// Compose transform matrix
 		//
 		MMatrix positionMatrix = Maxformations::createPositionMatrix(position);
-		MMatrix rotationMatrix = Maxformations::createRotationMatrix(eulerRotation, axisOrder);
+		MMatrix rotationMatrix = eulerRotation.asMatrix();
 		MMatrix scaleMatrix = Maxformations::createScaleMatrix(scale);
 
 		MMatrix matrix = scaleMatrix * rotationMatrix * positionMatrix;
 		
 		// Get output data handles
 		//
-		MDataHandle matrixHandle = data.outputValue(PRS::matrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle inverseMatrixHandle = data.outputValue(PRS::inverseMatrix, &status);
+		MDataHandle valueHandle = data.outputValue(PRS::value, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Update output data handles
 		//
-		matrixHandle.setMMatrix(matrix);
-		matrixHandle.setClean();
-
-		inverseMatrixHandle.setMMatrix(matrix.inverse());
-		inverseMatrixHandle.setClean();
+		valueHandle.setMMatrix(matrix);
+		valueHandle.setClean();
 
 		// Mark plug as clean
 		//
@@ -159,103 +142,16 @@ Only these values should be used when performing computations!
 };
 
 
-MStatus PRS::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
+bool PRS::isAbstractClass() const
 /**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
+Override this class to return true if this node is an abstract node.
+An abstract node can only be used as a base class. It cannot be created using the 'createNode' command.
 
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
+@return: True if the node is abstract.
 */
 {
 
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	if ((plug == PRS::matrix && asSrc) && this->maxform == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == Maxform::id)
-		{
-
-			this->maxform = static_cast<Maxform*>(fnDependNode.userNode());
-
-		}
-
-	}
-
-	return MPxNode::connectionMade(plug, otherPlug, asSrc);
-
-};
-
-
-MStatus PRS::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	if ((plug == PRS::matrix && asSrc) && this->maxform != nullptr)
-	{
-
-		this->maxform = nullptr;
-
-	}
-
-	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
-
-};
-
-
-Maxform* PRS::maxformPtr()
-/**
-Returns the maxform node associated with this prs controller.
-If no maxform node exists then a null pointer is returned instead!
-
-@return: Maxform pointer.
-*/
-{
-
-	return this->maxform;
-
-};
-
-
-void PRS::updateMaxformPtr(Maxform* maxform)
-/**
-Updates the internal maxform node pointer.
-This function is intended for use by IK-Chain controllers!
-
-@param maxform: The new maxform pointer.
-@return: void
-*/
-{
-
-	this->maxform = maxform;
+	return false;
 
 };
 
@@ -334,21 +230,18 @@ Use this function to define any static attributes.
 
 	// ".axisOrder" attribute
 	//
-	PRS::axisOrder = fnEnumAttr.create("axisOrder", "ao", short(1), &status);
+	PRS::axisOrder = fnEnumAttr.create("axisOrder", "ao", short(0), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnEnumAttr.addField("xyz", 1));
-	CHECK_MSTATUS(fnEnumAttr.addField("xzy", 2));
-	CHECK_MSTATUS(fnEnumAttr.addField("yzx", 3));
+	CHECK_MSTATUS(fnEnumAttr.addField("xyz", 0));
+	CHECK_MSTATUS(fnEnumAttr.addField("yzx", 1));
+	CHECK_MSTATUS(fnEnumAttr.addField("zxy", 2));
+	CHECK_MSTATUS(fnEnumAttr.addField("xzy", 3));
 	CHECK_MSTATUS(fnEnumAttr.addField("yxz", 4));
-	CHECK_MSTATUS(fnEnumAttr.addField("zxy", 5));
-	CHECK_MSTATUS(fnEnumAttr.addField("zyx", 6));
-	CHECK_MSTATUS(fnEnumAttr.addField("xyx", 7));
-	CHECK_MSTATUS(fnEnumAttr.addField("yzy", 8));
-	CHECK_MSTATUS(fnEnumAttr.addField("zxz", 9));
+	CHECK_MSTATUS(fnEnumAttr.addField("zyx", 5));
 	CHECK_MSTATUS(fnEnumAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::inputCategory));
-	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::eulerRotationCategory));
+	CHECK_MSTATUS(fnEnumAttr.addToCategory(PRS::rotationCategory));
 
 	// ".x_rotation" attribute
 	//
@@ -426,24 +319,10 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::scaleCategory));
 	
-	// Output attributes:
-	// ".matrix" attribute
+	// Inherit attributes from parent class
 	//
-	PRS::matrix = fnMatrixAttr.create("matrix", "m", MFnMatrixAttribute::kDouble, &status);
+	status = PRS::inheritAttributesFrom("matrix3Controller");
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
-	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(PRS::outputCategory));
-
-	// ".inverseMatrix" attribute
-	//
-	PRS::inverseMatrix = fnMatrixAttr.create("inverseMatrix", "im", MFnMatrixAttribute::kDouble, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
-	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(PRS::outputCategory));
 
 	// Add attributes to node
 	//
@@ -452,20 +331,12 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(PRS::addAttribute(PRS::scale));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::axisOrder));
 
-	CHECK_MSTATUS(PRS::addAttribute(PRS::matrix));
-	CHECK_MSTATUS(PRS::addAttribute(PRS::inverseMatrix));
-
 	// Define attribute relationships
 	//
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::matrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::axisOrder, PRS::matrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::matrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::scale, PRS::matrix));
-
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::inverseMatrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::axisOrder, PRS::inverseMatrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::inverseMatrix));
-	CHECK_MSTATUS(PRS::attributeAffects(PRS::scale, PRS::inverseMatrix));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::value));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::axisOrder, PRS::value));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::value));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::scale, PRS::value));
 
 	return status;
 

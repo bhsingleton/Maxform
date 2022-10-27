@@ -1,7 +1,7 @@
-#ifndef _PRSNode
-#define _PRSNode
+#ifndef _PRS_NODE
+#define _PRS_NODE
 //
-// File: PRSNode.h
+// File: PRS.h
 //
 // Dependency Graph Node: prs
 //
@@ -9,11 +9,7 @@
 //
 
 #include "Maxformations.h"
-#include "Maxform.h"
-
-#include <utility>
-#include <map>
-#include <vector>
+#include "Matrix3Controller.h"
 
 #include <maya/MPxNode.h>
 #include <maya/MObject.h>
@@ -35,7 +31,7 @@
 #include <maya/MGlobal.h>
 
 
-class PRS : public MPxNode
+class PRS : public Matrix3Controller
 {
 
 public:
@@ -45,12 +41,7 @@ public:
 
 	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
 	
-	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-
-	virtual	Maxform*	maxformPtr();
-	virtual	void		updateMaxformPtr(Maxform* maxform);
-	
+	virtual	bool		isAbstractClass() const;
 	static  void*		creator();
 	static  MStatus		initialize();
 
@@ -70,23 +61,17 @@ public:
 	static	MObject		y_scale;
 	static	MObject		z_scale;
 	
-	static	MObject		matrix;
-	static	MObject		inverseMatrix;
-
 public:
+
+	static	MString		inputCategory;
+	static	MString		positionCategory;
+	static	MString		rotationCategory;
+	static	MString		scaleCategory;
 
 	static	MTypeId		id;
 
-	static	MString		inputCategory;
-	static	MString		outputCategory;
-	static	MString		positionCategory;
-	static	MString		rotationCategory;
-	static	MString		eulerRotationCategory;
-	static	MString		scaleCategory;
-
 protected:
 			
-			Maxform*		maxform;
-
+			Matrix3Controller*	matrix3Controller;
 };
 #endif
