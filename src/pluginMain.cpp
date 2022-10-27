@@ -4,12 +4,17 @@
 // Author: Benjamin H. Singleton
 //
 
+#include "Matrix3.h"
 #include "Maxform.h"
 #include "ExposeTransform.h"
-#include "PRSNode.h"
-#include "PositionListNode.h"
-#include "RotationListNode.h"
-#include "ScaleListNode.h"
+#include "Matrix3Controller.h"
+#include "PRS.h"
+#include "IKChainControl.h"
+#include "IKControl.h"
+#include "PositionList.h"
+#include "RotationList.h"
+#include "ScaleList.h"
+
 #include <maya/MFnPlugin.h>
 
 
@@ -28,7 +33,16 @@ MStatus initializePlugin(MObject obj)
 	status = plugin.registerTransform("exposeTm", ExposeTransform::id, ExposeTransform::creator, ExposeTransform::initialize, Matrix3::creator, Matrix3::id, &ExposeTransform::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.registerNode("matrix3Controller", Matrix3Controller::id, Matrix3Controller::creator, Matrix3Controller::initialize);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	status = plugin.registerNode("prs", PRS::id, PRS::creator, PRS::initialize);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("ikChainControl", IKChainControl::id, IKChainControl::creator, IKChainControl::initialize);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("ikControl", IKControl::id, IKControl::creator, IKControl::initialize);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.registerNode("positionList", PositionList::id, PositionList::creator, PositionList::initialize);
@@ -59,7 +73,16 @@ MStatus uninitializePlugin(MObject obj)
 	status = plugin.deregisterNode(ExposeTransform::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.deregisterNode(Matrix3Controller::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	status = plugin.deregisterNode(PRS::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(IKChainControl::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(IKControl::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.deregisterNode(PositionList::id);
