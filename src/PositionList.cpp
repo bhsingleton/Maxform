@@ -6,7 +6,7 @@
 // Author: Benjamin H. Singleton
 //
 
-#include "PositionListNode.h"
+#include "PositionList.h"
 
 MObject		PositionList::active;
 MObject		PositionList::average;
@@ -39,8 +39,28 @@ MString		PositionList::prePositionCategory("PrePosition");
 MTypeId		PositionList::id(0x0013b1c5);
 
 
-PositionList::PositionList() { this->prs = nullptr; this->previousIndex = 0; this->activeIndex = 0; };
-PositionList::~PositionList() { this->prs = nullptr; };
+PositionList::PositionList()
+/**
+Constructor.
+*/
+{
+	
+	this->prs = nullptr; 
+	this->previousIndex = 0; 
+	this->activeIndex = 0;
+
+};
+
+
+PositionList::~PositionList()
+/**
+Destructor.
+*/
+{
+
+	this->prs = nullptr;
+
+};
 
 
 MStatus PositionList::compute(const MPlug& plug, MDataBlock& data) 
@@ -212,21 +232,27 @@ Another use for this method is to impose attribute limits.
 
 	// Inspect plug attribute
 	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN(status, false);
-	
 	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (attribute == PositionList::active && !isSceneLoading)
+	if (plug == PositionList::active && !isSceneLoading)
 	{
 
-		this->activeIndex = handle.asShort();
+		// Check if index is in range
+		//
+		MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
+
+		unsigned int numElements = listPlug.numElements();
+		CHECK_MSTATUS_AND_RETURN(status, false);
+
+		this->activeIndex = Maxformations::clamp(handle.asInt(), 0, (int)(numElements - 1));
 		this->updateActiveController();
 
 	}
-	else if (attribute == PositionList::active && isSceneLoading)
+	else if (plug == PositionList::active && isSceneLoading)
 	{
 
+		// Cache active indices
+		//
 		this->previousIndex = this->activeIndex = handle.asShort();
 
 	}
@@ -251,39 +277,21 @@ Updates the active controller.
 	// Redundancy check
 	//
 	Maxform* maxform = this->maxformPtr();
+	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (this->previousIndex == this->activeIndex || maxform == nullptr)
+	if (this->previousIndex == this->activeIndex || maxform == nullptr || isSceneLoading)
 	{
 
 		return MS::kSuccess;  // Nothing to do here~!
 
 	}
 
-	// Get list plug elements
+	// Transfer connections
 	//
-	MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
-
-	MPlug previousElement = listPlug.elementByLogicalIndex(this->previousIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug newElement = listPlug.elementByLogicalIndex(this->activeIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update position plugs
-	//
-	MPlug previousPlug = previousElement.child(PositionList::position, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug newPlug = newElement.child(PositionList::position, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
-
-	status = this->updateActiveController(translatePlug, previousPlug, newPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update internal tracker
-	//
+	this->pullController(this->previousIndex);
+	this->pushController(this->activeIndex);
+	
+	MGlobal::displayInfo("Updated active position controller!");
 	this->previousIndex = this->activeIndex;
 
 	return MS::kSuccess;
@@ -291,40 +299,86 @@ Updates the active controller.
 };
 
 
-MStatus PositionList::updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug)
+MStatus PositionList::pullController(unsigned int index)
 /**
-Updates the active controller.
+Transfers any connections from the associated maxform back to the specified index.
 
-@param sourcePlug: The source plug that drives this controller.
-@param previousPlug: The plug that represents the previously active controller.
-@param newPlug: The plug that represents the new active controller.
-@return: Status code.
+@param index: The index to transfer connections to.
+@return: Return status.
 */
 {
 
 	MStatus status;
 
-	// Check if rotate plug has incoming connections
-	// If so, then move those connections back to the previous plug
+	// Check if maxform exists
 	//
-	status = Maxformations::breakConnections(previousPlug, true, false);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	Maxform* maxform = this->maxformPtr();
 
-	status = Maxformations::transferConnections(sourcePlug, previousPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (maxform == nullptr)
+	{
 
-	// Check if new plug has incoming connections
-	// If so, then move those connections to the source plug
+		return MS::kNotFound;
+
+	}
+
+	// Get position plugs
 	//
-	status = Maxformations::transferValues(newPlug, sourcePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = Maxformations::transferConnections(newPlug, sourcePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Connect source plug to new plug
+	MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
+	
+	MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
+	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(PositionList::position);
+	
+	// Transfer connections to controller
 	//
-	status = Maxformations::connectPlugs(sourcePlug, newPlug, true);
+	status = Maxformations::breakConnections(controllerPlug, true, false);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(translatePlug, controllerPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
+
+};
+
+
+MStatus PositionList::pushController(unsigned int index)
+/**
+Transfers any connections from the specified index to the associated maxform.
+
+@param index: The index to transfer connections from.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Check if maxform exists
+	//
+	Maxform* maxform = this->maxformPtr();
+
+	if (maxform == nullptr)
+	{
+
+		return MS::kNotFound;
+
+	}
+
+	// Get position plugs
+	//
+	MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
+
+	MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
+	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(PositionList::position);
+
+	// Update controller connections
+	//
+	status = Maxformations::transferValues(controllerPlug, translatePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(controllerPlug, translatePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::connectPlugs(translatePlug, controllerPlug, true);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
@@ -354,9 +408,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isPosition = fnAttribute.hasCategory(PositionList::positionCategory);
+	bool isOutput = fnAttribute.hasCategory(PositionList::outputCategory);
 
-	if ((isPosition && asSrc) && this->prs == nullptr)
+	if ((isOutput && asSrc) && this->prs == nullptr)
 	{
 
 		// Inspect other node
@@ -374,6 +428,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		{
 
 			this->prs = static_cast<PRS*>(fnDependNode.userNode());
+			this->updateActiveController();
 
 		}
 
@@ -406,9 +461,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isPosition = fnAttribute.hasCategory(PRS::positionCategory);
+	bool isOutput = fnAttribute.hasCategory(PRS::valueCategory);
 
-	if ((isPosition && asSrc) && this->prs != nullptr)
+	if ((isOutput && asSrc) && this->prs != nullptr)
 	{
 
 		// Check if plug is still partially connected

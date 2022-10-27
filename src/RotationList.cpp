@@ -6,7 +6,7 @@
 // Author: Benjamin H. Singleton
 //
 
-#include "RotationListNode.h"
+#include "RotationList.h"
 
 MObject		RotationList::active;
 MObject		RotationList::average;
@@ -40,8 +40,28 @@ MString		RotationList::preRotationCategory("PreRotation");
 MTypeId		RotationList::id(0x0013b1c6);
 
 
-RotationList::RotationList() { this->prs = nullptr; this->previousIndex = 0; this->activeIndex = 0; };
-RotationList::~RotationList() { this->prs = nullptr; };
+RotationList::RotationList() 
+/**
+Constructor.
+*/
+{ 
+
+	this->prs = nullptr;
+	this->previousIndex = 0;
+	this->activeIndex = 0;
+
+};
+
+
+RotationList::~RotationList()
+/**
+Destructor.
+*/
+{
+
+	this->prs = nullptr;
+
+};
 
 
 MStatus RotationList::compute(const MPlug& plug, MDataBlock& data) 
@@ -217,21 +237,27 @@ Another use for this method is to impose attribute limits.
 
 	// Inspect plug attribute
 	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN(status, false);
-
 	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (attribute == RotationList::active && !isSceneLoading)
+	if (plug == RotationList::active && !isSceneLoading)
 	{
 
-		this->activeIndex = handle.asShort();
+		// Check if index is in range
+		//
+		MPlug listPlug = MPlug(this->thisMObject(), RotationList::list);
+
+		unsigned int numElements = listPlug.numElements();
+		CHECK_MSTATUS_AND_RETURN(status, false);
+
+		this->activeIndex = Maxformations::clamp(handle.asInt(), 0, (int)(numElements - 1));
 		this->updateActiveController();
 
 	}
-	else if (attribute == RotationList::active && isSceneLoading)
+	else if (plug == RotationList::active && isSceneLoading)
 	{
 
+		// Cache active indices
+		//
 		this->previousIndex = this->activeIndex = handle.asShort();
 
 	}
@@ -256,52 +282,21 @@ Updates the active controller.
 	// Redundancy check
 	//
 	Maxform* maxform = this->maxformPtr();
+	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (this->previousIndex == this->activeIndex || maxform == nullptr)
+	if (this->previousIndex == this->activeIndex || maxform == nullptr || isSceneLoading)
 	{
 
 		return MS::kSuccess;  // Nothing to do here~!
 
 	}
 
-	// Get list plug elements
+	// Transfer connections
 	//
-	MPlug listPlug = MPlug(this->thisMObject(), RotationList::list);
+	this->pullController(this->previousIndex);
+	this->pushController(this->activeIndex);
 
-	MPlug previousElement = listPlug.elementByLogicalIndex(this->previousIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug newElement = listPlug.elementByLogicalIndex(this->activeIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update axis-order plugs
-	//
-	MPlug previousPlug = previousElement.child(RotationList::axisOrder, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug newPlug = newElement.child(RotationList::axisOrder, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug axisOrderPlug = MPlug(maxform->thisMObject(), Maxform::axisOrder);
-
-	status = this->updateActiveController(axisOrderPlug, previousPlug, newPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update rotation plugs
-	//
-	previousPlug = previousElement.child(RotationList::rotation, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	newPlug = newElement.child(RotationList::rotation, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug rotatePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
-
-	status = this->updateActiveController(rotatePlug, previousPlug, newPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update internal tracker
-	//
+	MGlobal::displayInfo("Updated active rotation controller!");
 	this->previousIndex = this->activeIndex;
 
 	return MS::kSuccess;
@@ -309,40 +304,100 @@ Updates the active controller.
 };
 
 
-MStatus RotationList::updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug)
+MStatus RotationList::pullController(unsigned int index)
 /**
-Updates the active controller.
+Transfers any connections from the associated maxform back to the specified index.
 
-@param sourcePlug: The source plug that drives this controller.
-@param previousPlug: The plug that represents the previously active controller.
-@param newPlug: The plug that represents the new active controller.
-@return: Status code.
+@param index: The index to transfer connections to.
+@return: Return status.
 */
 {
 
 	MStatus status;
 
-	// Check if rotate plug has incoming connections
-	// If so, then move those connections back to the previous plug
+	// Check if maxform exists
 	//
-	status = Maxformations::breakConnections(previousPlug, true, false);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	Maxform* maxform = this->maxformPtr();
 
-	status = Maxformations::transferConnections(sourcePlug, previousPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (maxform == nullptr)
+	{
 
-	// Check if new plug has incoming connections
-	// If so, then move those connections to the source plug
+		return MS::kNotFound;
+
+	}
+
+	// Get rotation plugs
 	//
-	status = Maxformations::transferValues(newPlug, sourcePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug rotatePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
 
-	status = Maxformations::transferConnections(newPlug, sourcePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug listPlug = MPlug(this->thisMObject(), RotationList::list);
+	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(RotationList::rotation);
 
-	// Connect source plug to new plug
+	// Transfer connections to controller
 	//
-	status = Maxformations::connectPlugs(sourcePlug, newPlug, true);
+	status = Maxformations::breakConnections(controllerPlug, true, false);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(rotatePlug, controllerPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
+
+};
+
+
+MStatus RotationList::pushController(unsigned int index)
+/**
+Transfers any connections from the specified index to the associated maxform.
+
+@param index: The index to transfer connections from.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Check if maxform exists
+	//
+	Maxform* maxform = this->maxformPtr();
+
+	if (maxform == nullptr)
+	{
+
+		return MS::kNotFound;
+
+	}
+
+	// Get required plugs
+	//
+	MPlug rotatePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
+	MPlug rotateOrderPlug = MPlug(maxform->thisMObject(), Maxform::rotateOrder);
+
+	MPlug listPlug = MPlug(this->thisMObject(), RotationList::list);
+	MPlug element = listPlug.elementByLogicalIndex(index);
+	MPlug rotationController = element.child(RotationList::rotation);
+	MPlug axisOrderController = element.child(RotationList::axisOrder);
+
+	// Update rotation controller
+	//
+	status = Maxformations::transferValues(rotationController, rotatePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(rotationController, rotatePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::connectPlugs(rotatePlug, rotationController, true);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Update axis order controller
+	//
+	status = Maxformations::transferValues(axisOrderController, rotateOrderPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(axisOrderController, rotateOrderPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::connectPlugs(rotateOrderPlug, axisOrderController, true);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
@@ -372,9 +427,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isRotation = fnAttribute.hasCategory(RotationList::rotationCategory);
+	bool isOutput = fnAttribute.hasCategory(RotationList::outputCategory);
 
-	if ((isRotation && asSrc) && this->prs == nullptr)
+	if ((isOutput && asSrc) && this->prs == nullptr)
 	{
 
 		// Inspect other node
@@ -392,6 +447,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		{
 
 			this->prs = static_cast<PRS*>(fnDependNode.userNode());
+			this->updateActiveController();
 
 		}
 
@@ -424,9 +480,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isRotation = fnAttribute.hasCategory(PRS::rotationCategory);
+	bool isOutput = fnAttribute.hasCategory(PRS::valueCategory);
 
-	if ((isRotation && asSrc) && this->prs != nullptr)
+	if ((isOutput && asSrc) && this->prs != nullptr)
 	{
 
 		// Check if plug is still partially connected
@@ -483,7 +539,7 @@ Returns the weighted average from the supplied array data handle.
 	MString name;
 	float weight;
 	bool absolute;
-	Maxformations::AxisOrder axisOrder;
+	MEulerRotation::RotationOrder axisOrder;
 	double rotationX, rotationY, rotationZ;
 
 	for (unsigned int i = 0; i < numItems; i++)
@@ -513,14 +569,14 @@ Returns the weighted average from the supplied array data handle.
 		name = nameHandle.asString();
 		weight = weightHandle.asFloat();
 		absolute = absoluteHandle.asBool();
-		axisOrder = Maxformations::AxisOrder(axisOrderHandle.asShort());
+		axisOrder = MEulerRotation::RotationOrder(axisOrderHandle.asShort());
 		rotationX = rotationXHandle.asAngle().asRadians();
 		rotationY = rotationYHandle.asAngle().asRadians();
 		rotationZ = rotationZHandle.asAngle().asRadians();
 
 		// Assign item to array
 		//
-		items[i] = RotationListItem{ name, weight, absolute, axisOrder, MVector(rotationX, rotationY, rotationZ) };
+		items[i] = RotationListItem{ name, weight, absolute, MEulerRotation(rotationX, rotationY, rotationZ, axisOrder) };
 
 	}
 
@@ -601,7 +657,7 @@ Returns the weighted average of the supplied rotation items.
 
 		// Evaluate which method to use
 		//
-		rotation = Maxformations::createRotationMatrix(item.rotate, item.axisOrder);
+		rotation = item.eulerRotation.asQuaternion();
 
 		if (item.absolute)
 		{
@@ -772,18 +828,15 @@ Use this function to define any static attributes.
 
 	// ".axisOrder" attribute
 	//
-	RotationList::axisOrder = fnEnumAttr.create("axisOrder", "ao", short(1), &status);
+	RotationList::axisOrder = fnEnumAttr.create("axisOrder", "ao", short(0), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
-	CHECK_MSTATUS(fnEnumAttr.addField("xyz", 1));
-	CHECK_MSTATUS(fnEnumAttr.addField("xzy", 2));
-	CHECK_MSTATUS(fnEnumAttr.addField("yzx", 3));
+	CHECK_MSTATUS(fnEnumAttr.addField("xyz", 0));
+	CHECK_MSTATUS(fnEnumAttr.addField("yzx", 1));
+	CHECK_MSTATUS(fnEnumAttr.addField("zxy", 2));
+	CHECK_MSTATUS(fnEnumAttr.addField("xzy", 3));
 	CHECK_MSTATUS(fnEnumAttr.addField("yxz", 4));
-	CHECK_MSTATUS(fnEnumAttr.addField("zxy", 5));
-	CHECK_MSTATUS(fnEnumAttr.addField("zyx", 6));
-	CHECK_MSTATUS(fnEnumAttr.addField("xyx", 7));
-	CHECK_MSTATUS(fnEnumAttr.addField("yzy", 8));
-	CHECK_MSTATUS(fnEnumAttr.addField("zxz", 9));
+	CHECK_MSTATUS(fnEnumAttr.addField("zyx", 5));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(RotationList::inputCategory));
 	CHECK_MSTATUS(fnEnumAttr.addToCategory(RotationList::listCategory));
 

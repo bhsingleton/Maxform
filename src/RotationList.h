@@ -1,15 +1,15 @@
-#ifndef _PositionListNode
-#define _PositionListNode
+#ifndef _ROTATION_LIST_NODE
+#define _ROTATION_LIST_NODE
 //
-// File: PositionListNode.h
+// File: RotationList.h
 //
-// Dependency Graph Node: positionList
+// Dependency Graph Node: rotationList
 //
 // Author: Benjamin H. Singleton
 //
 
 #include "Maxformations.h"
-#include "PRSNode.h"
+#include "PRS.h"
 
 #include <utility>
 #include <map>
@@ -21,55 +21,56 @@
 #include <maya/MDataBlock.h>
 #include <maya/MDataHandle.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnEnumAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
-#include <maya/MFnNumericData.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnNumericData.h>
 #include <maya/MTypeId.h> 
-#include <maya/MFileIO.h>
 #include <maya/MGlobal.h>
+#include <math.h>
 
- 
-struct PositionListItem
+
+struct RotationListItem
 {
 
 	MString	name = "";
 	float weight = 1.0;
 	bool absolute = false;
-	MVector translate = MVector::zero;
+	MEulerRotation eulerRotation = MEulerRotation::identity;
 
 };
 
 
-class PositionList : public MPxNode
+class RotationList : public MPxNode
 {
 
 public:
 
-						PositionList();
-	virtual				~PositionList();
+						RotationList();
+	virtual				~RotationList();
 
 	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
 
-	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
-	virtual	MStatus		updateActiveController();
-	virtual	MStatus		updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug);
+	static	MQuaternion	sum(MArrayDataHandle& handle, const bool normalizeWeights, MStatus* status);
+	static	MQuaternion	sum(MArrayDataHandle& handle, const unsigned int active, const bool normalizeWeights, MStatus* status);
+	static	MQuaternion	sum(std::vector<RotationListItem>& items, const bool normalizeWeights);
+	static	void		normalize(std::vector<RotationListItem>& items);
 
+	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
 	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
+	virtual	MStatus		updateActiveController();
+	virtual	MStatus		pullController(unsigned int index);
+	virtual	MStatus		pushController(unsigned int index);
+
+	virtual	Maxform*	maxformPtr();
+
 	static  void*		creator();
 	static  MStatus		initialize();
-
-	static	MVector		sum(MArrayDataHandle& handle, const bool normalizeWeights, MStatus* status);
-	static	MVector		sum(MArrayDataHandle& handle, const unsigned int active, const bool normalizeWeights, MStatus* status);
-	static	MVector		sum(std::vector<PositionListItem>& items, const bool normalizeWeights);
-	static	void		normalize(std::vector<PositionListItem>& items);
-	
-	virtual	Maxform*	maxformPtr();
 
 public:
 
@@ -79,10 +80,11 @@ public:
 	static	MObject		name;
 	static	MObject		weight;
 	static	MObject		absolute;
-	static	MObject		position;
-	static	MObject		x_position;
-	static	MObject		y_position;
-	static	MObject		z_position;
+	static	MObject		axisOrder;
+	static	MObject		rotation;
+	static	MObject		x_rotation;
+	static	MObject		y_rotation;
+	static	MObject		z_rotation;
 	
 	static	MObject		value;
 	static	MObject		valueX;
@@ -98,15 +100,19 @@ public:
 	static	MString		inputCategory;
 	static	MString		outputCategory;
 	static	MString		listCategory;
-	static	MString		positionCategory;
-	static	MString		prePositionCategory;
+	static	MString		rotationCategory;
+	static	MString		preRotationCategory;
 
 	static	MTypeId		id;
+	
+public:
+
+
 
 protected:
 			
 			PRS*			prs;
-			unsigned int	previousIndex;
+			unsigned int	previousIndex;;
 			unsigned int	activeIndex;
 
 };

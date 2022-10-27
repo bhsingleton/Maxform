@@ -6,7 +6,7 @@
 // Author: Benjamin H. Singleton
 //
 
-#include "ScaleListNode.h"
+#include "ScaleList.h"
 
 MObject		ScaleList::active;
 MObject		ScaleList::average;
@@ -39,8 +39,28 @@ MString		ScaleList::preScaleCategory("PreScale");
 MTypeId		ScaleList::id(0x0013b1c7);
 
 
-ScaleList::ScaleList() { this->prs = nullptr; this->previousIndex = 0; this->activeIndex = 0; };
-ScaleList::~ScaleList() { this->prs = nullptr; };
+ScaleList::ScaleList()
+/**
+Constructor.
+*/
+{
+	
+	this->prs = nullptr;
+	this->previousIndex = 0;
+	this->activeIndex = 0;
+
+};
+
+
+ScaleList::~ScaleList()
+/**
+Destructor.
+*/
+{
+	
+	this->prs = nullptr;
+
+};
 
 
 MStatus ScaleList::compute(const MPlug& plug, MDataBlock& data) 
@@ -212,20 +232,26 @@ Another use for this method is to impose attribute limits.
 
 	// Inspect plug attribute
 	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN(status, false);
-
 	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (attribute == ScaleList::active && !isSceneLoading)
+	if (plug == ScaleList::active && !isSceneLoading)
 	{
 
-		this->activeIndex = handle.asShort();
+		// Check if index is in range
+		//
+		MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
+
+		unsigned int numElements = listPlug.numElements();
+		CHECK_MSTATUS_AND_RETURN(status, false);
+
+		this->activeIndex = Maxformations::clamp(handle.asInt(), 0, (int)(numElements - 1));
+		this->updateActiveController();
 
 	}
-	else if (attribute == ScaleList::active && isSceneLoading)
+	else if (plug == ScaleList::active && isSceneLoading)
 	{
 
+		// Cache active indices
 		this->previousIndex = this->activeIndex = handle.asShort();
 
 	}
@@ -250,39 +276,21 @@ Updates the active controller.
 	// Redundancy check
 	//
 	Maxform* maxform = this->maxformPtr();
+	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (this->previousIndex == this->activeIndex || maxform == nullptr)
+	if (this->previousIndex == this->activeIndex || maxform == nullptr || isSceneLoading)
 	{
 
 		return MS::kSuccess;  // Nothing to do here~!
 
 	}
 
-	// Get list plug elements
+	// Transfer connections
 	//
-	MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
+	this->pullController(this->previousIndex);
+	this->pushController(this->activeIndex);
 
-	MPlug previousElement = listPlug.elementByLogicalIndex(this->previousIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug newElement = listPlug.elementByLogicalIndex(this->activeIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update scale plugs
-	//
-	MPlug previousPlug = previousElement.child(ScaleList::scale, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug newPlug = newElement.child(ScaleList::scale, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::scale);
-
-	status = this->updateActiveController(scalePlug, previousPlug, newPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Update internal tracker
-	//
+	MGlobal::displayInfo("Updated active scale controller!");
 	this->previousIndex = this->activeIndex;
 
 	return MS::kSuccess;
@@ -290,40 +298,86 @@ Updates the active controller.
 };
 
 
-MStatus ScaleList::updateActiveController(MPlug& sourcePlug, MPlug& previousPlug, MPlug& newPlug)
+MStatus ScaleList::pullController(unsigned int index)
 /**
-Updates the active controller.
+Transfers any connections from the associated maxform back to the specified index.
 
-@param sourcePlug: The source plug that drives this controller.
-@param previousPlug: The plug that represents the previously active controller.
-@param newPlug: The plug that represents the new active controller.
-@return: Status code.
+@param index: The index to transfer connections to.
+@return: Return status.
 */
 {
 
 	MStatus status;
 
-	// Check if rotate plug has incoming connections
-	// If so, then move those connections back to the previous plug
+	// Check if maxform exists
 	//
-	status = Maxformations::breakConnections(previousPlug, true, false);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	Maxform* maxform = this->maxformPtr();
 
-	status = Maxformations::transferConnections(sourcePlug, previousPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (maxform == nullptr)
+	{
 
-	// Check if new plug has incoming connections
-	// If so, then move those connections to the source plug
+		return MS::kNotFound;
+
+	}
+
+	// Get scale plugs
 	//
-	status = Maxformations::transferValues(newPlug, sourcePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
 
-	status = Maxformations::transferConnections(newPlug, sourcePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
+	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(ScaleList::scale);
 
-	// Connect source plug to new plug
+	// Transfer connections to controller
 	//
-	status = Maxformations::connectPlugs(sourcePlug, newPlug, true);
+	status = Maxformations::breakConnections(controllerPlug, true, false);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(scalePlug, controllerPlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
+
+};
+
+
+MStatus ScaleList::pushController(unsigned int index)
+/**
+Transfers any connections from the specified index to the associated maxform.
+
+@param index: The index to transfer connections from.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Check if maxform exists
+	//
+	Maxform* maxform = this->maxformPtr();
+
+	if (maxform == nullptr)
+	{
+
+		return MS::kNotFound;
+
+	}
+
+	// Get scale plugs
+	//
+	MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::scale);
+
+	MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
+	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(ScaleList::scale);
+
+	// Update controller connections
+	//
+	status = Maxformations::transferValues(controllerPlug, scalePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::transferConnections(controllerPlug, scalePlug);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::connectPlugs(scalePlug, controllerPlug, true);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
@@ -353,9 +407,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isScale = fnAttribute.hasCategory(ScaleList::scaleCategory);
+	bool isOutput = fnAttribute.hasCategory(ScaleList::outputCategory);
 
-	if ((isScale && asSrc) && this->prs == nullptr)
+	if ((isOutput && asSrc) && this->prs == nullptr)
 	{
 
 		// Inspect other node
@@ -373,6 +427,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		{
 
 			this->prs = static_cast<PRS*>(fnDependNode.userNode());
+			this->updateActiveController();
 
 		}
 
@@ -405,9 +460,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isScale = fnAttribute.hasCategory(PRS::scaleCategory);
+	bool isOutput = fnAttribute.hasCategory(PRS::valueCategory);
 
-	if ((isScale && asSrc) && this->prs != nullptr)
+	if ((isOutput && asSrc) && this->prs != nullptr)
 	{
 
 		// Check if plug is still partially connected
