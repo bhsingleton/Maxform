@@ -1,5 +1,5 @@
-#ifndef _Maxformations
-#define _Maxformations
+#ifndef _MAXFORMATIONS
+#define _MAXFORMATIONS
 //
 // File: Maxformations.h
 //
@@ -33,6 +33,8 @@
 
 namespace Maxformations
 {
+
+	static MVector AXIS_VECTORS[3] = { MVector::xAxis, MVector::yAxis, MVector::zAxis };
 
 	enum class AxisOrder
 	{
@@ -79,59 +81,69 @@ namespace Maxformations
 
 	};
 
-	MMatrix		createPositionMatrix(const double x, const double y, const double z);
-	MMatrix		createPositionMatrix(const MVector& position);
-	MMatrix		createPositionMatrix(const MMatrix& matrix);
+	MMatrix			createPositionMatrix(const double x, const double y, const double z);
+	MMatrix			createPositionMatrix(const MVector& position);
+	MMatrix			createPositionMatrix(const MMatrix& matrix);
 
-	MMatrix		createRotationMatrix(const double x, const double y, const double z, const AxisOrder axisOrder);
-	MMatrix		createRotationMatrix(const MVector& radians, const AxisOrder axisOrder);
-	MMatrix		createRotationMatrix(const MMatrix& matrix);
+	MMatrix			createRotationMatrix(const double x, const double y, const double z, const AxisOrder axisOrder);
+	MMatrix			createRotationMatrix(const MVector& radians, const AxisOrder axisOrder);
+	MMatrix			createRotationMatrix(const MMatrix& matrix);
 
-	MMatrix		createScaleMatrix(const double x, const double y, const double z);
-	MMatrix		createScaleMatrix(const MVector& scale);
-	MMatrix		createScaleMatrix(const MMatrix& matrix);
+	MMatrix			createScaleMatrix(const double x, const double y, const double z);
+	MMatrix			createScaleMatrix(const MVector& scale);
+	MMatrix			createScaleMatrix(const MMatrix& matrix);
 
-	void		breakMatrix(const MMatrix& matrix, MVector& xAxis, MVector& yAxis, MVector& zAxis, MPoint& position);
-	MMatrix		createMatrix(const MVector& xAxis, const MVector& yAxis, const MVector& zAxis, const MPoint& position);
-	MMatrix		normalizeMatrix(const MMatrix& matrix);
+	void			breakMatrix(const MMatrix& matrix, MVector& xAxis, MVector& yAxis, MVector& zAxis, MPoint& position);
+	MMatrix			createMatrix(const MVector& xAxis, const MVector& yAxis, const MVector& zAxis, const MPoint& position);
+	MMatrix			normalizeMatrix(const MMatrix& matrix);
+	MMatrixArray	staggerMatrices(const MMatrixArray& matrices);
+	MMatrixArray	reorientMatrices(const MMatrixArray& matrices, int forwardAxis, bool forwardAxisFlip, int upAxis, bool upAxisFlip);
+	
+	MVector			matrixToPosition(const MMatrix& matrix);
 
-	MVector		matrixToPosition(const MMatrix& matrix);
+	MEulerRotation::RotationOrder	axisToRotationOrder(const AxisOrder axisOrder);
+	AxisOrder		rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
 
-	MVector		matrixToEulerXYZ(const MMatrix& matrix);
-	MVector		matrixToEulerXZY(const MMatrix& matrix);
-	MVector		matrixToEulerYXZ(const MMatrix& matrix);
-	MVector		matrixToEulerYZX(const MMatrix& matrix);
-	MVector		matrixToEulerZXY(const MMatrix& matrix);
-	MVector		matrixToEulerZYX(const MMatrix& matrix);
-	MVector		matrixToEulerXYX(const MMatrix& matrix);
-	MVector		matrixToEulerYZY(const MMatrix& matrix);
-	MVector		matrixToEulerZXZ(const MMatrix& matrix);
-	MVector		matrixToEulerAngles(const MMatrix& matrix, const AxisOrder axisOrder);
+	MVector			matrixToEulerXYZ(const MMatrix& matrix);
+	MVector			matrixToEulerXZY(const MMatrix& matrix);
+	MVector			matrixToEulerYXZ(const MMatrix& matrix);
+	MVector			matrixToEulerYZX(const MMatrix& matrix);
+	MVector			matrixToEulerZXY(const MMatrix& matrix);
+	MVector			matrixToEulerZYX(const MMatrix& matrix);
+	MVector			matrixToEulerXYX(const MMatrix& matrix);
+	MVector			matrixToEulerYZY(const MMatrix& matrix);
+	MVector			matrixToEulerZXZ(const MMatrix& matrix);
+	MVector			matrixToEulerAngles(const MMatrix& matrix, const AxisOrder axisOrder);
 
-	MQuaternion	eulerAnglesToQuaternion(const MVector& radians, const AxisOrder axisOrder);
-	MQuaternion	matrixToQuaternion(const MMatrix& matrix);
-	double		dot(const MQuaternion& quat, const MQuaternion& otherQuat);
-	MQuaternion	slerp(const MQuaternion& startQuat, const MQuaternion& endQuat, const float weight);
-	MMatrix		slerp(const MMatrix& startMatrix, const MMatrix& endMatrix, const float weight);
+	MEulerRotation	matrixToEulerRotation(const MMatrix& matrix, const AxisOrder axisOrder);
+	MEulerRotation	matrixToEulerRotation(const MMatrix& matrix, const MEulerRotation::RotationOrder rotationOrder);
+	MEulerRotation	matrixToEulerRotation(const MMatrix& matrix, const MTransformationMatrix::RotationOrder rotationOrder);
 
-	MVector		matrixToScale(const MMatrix& matrix);
+	MQuaternion		eulerAnglesToQuaternion(const MVector& radians, const AxisOrder axisOrder);
+	MQuaternion		matrixToQuaternion(const MMatrix& matrix);
+	double			dot(const MQuaternion& quat, const MQuaternion& otherQuat);
+	MQuaternion		slerp(const MQuaternion& startQuat, const MQuaternion& endQuat, const float weight);
+	MMatrix			slerp(const MMatrix& startMatrix, const MMatrix& endMatrix, const float weight);
 
-	MDistance	distanceBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
-	MAngle		angleBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
+	MVector			matrixToScale(const MMatrix& matrix);
 
-	MObject		createMatrixData(const MMatrix& matrix, MStatus* status);
-	MMatrix		getMatrixData(const MObject& matrixData, MStatus* status);
-	MStatus		resetMatrixPlug(MPlug& plug);
+	MDistance		distanceBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
+	MAngle			angleBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 
-	bool		isPartiallyConnected(const MPlug& plug, const bool asDst, const bool asSrc, MStatus* status);
-	MStatus		disconnectPlugs(const MPlug& plug, const MPlug& otherPlug);
-	MStatus		breakConnections(const MPlug& plug, bool asDst, bool asSrc);
-	MStatus		connectPlugs(const MPlug& plug, const MPlug& otherPlug, const bool force);
+	MObject			createMatrixData(const MMatrix& matrix, MStatus* status);
+	MMatrix			getMatrixData(const MObject& matrixData, MStatus* status);
+	MStatus			resetMatrixPlug(MPlug& plug);
 
-	MStatus		transferConnections(const MPlug& plug, const MPlug& otherPlug);
-	MStatus		transferValues(MPlug& plug, MPlug& otherPlug);
+	bool			isPartiallyConnected(const MPlug& plug, const bool asDst, const bool asSrc, MStatus* status);
+	MStatus			disconnectPlugs(const MPlug& plug, const MPlug& otherPlug);
+	MStatus			breakConnections(const MPlug& plug, bool asDst, bool asSrc);
+	MStatus			connectPlugs(const MPlug& plug, const MPlug& otherPlug, const bool force);
 
-	bool		isSceneLoading();
+	MStatus			transferConnections(const MPlug& plug, const MPlug& otherPlug);
+	MStatus			transferValues(MPlug& plug, MPlug& otherPlug);
+
+	bool			hasTypeId(const MObject& node, const MTypeId& id, MStatus* status);
+	bool			isSceneLoading();
 
 };
 #endif

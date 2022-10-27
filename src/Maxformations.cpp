@@ -289,6 +289,66 @@ namespace Maxformations
 
 	};
 
+	MMatrixArray staggerMatrices(const MMatrixArray& matrices)
+	/**
+	Returns an array matrices where each matrix is converted to local space using the preceding matrix as the parent space.
+
+	@param matrices: The matrices to stagger.
+	@return: The converted matrices.
+	*/
+	{
+
+		unsigned int numMatrices = matrices.length();
+		MMatrixArray newMatrices = MMatrixArray(numMatrices);
+
+		for (unsigned int i = 1; i < numMatrices; i++)  // Skip the first item!
+		{
+
+			newMatrices[i] = matrices[i] * matrices[i - 1].inverse();
+
+		}
+
+		return newMatrices;
+
+	};
+
+	MMatrixArray reorientMatrices(const MMatrixArray& matrices, int forwardAxis, bool forwardAxisFlip, int upAxis, bool upAxisFlip)
+	/**
+	Returns an array of matrices that are re-oriented based on the supplied axis alignments.
+
+	@param matrices: The matrices to re-orient.
+	@param forwardAxis: The forward axis.
+	@param forwardAxisFlip: Determines if forward axis should be flipped.
+	@param upAxis: The up axis.
+	@param upAxisFlip: Determines if up axis should be flipped.
+	@return: The re-oriented matrices.
+	*/
+	{
+
+		// Compose aim matrix
+		//
+		MVector forwardVector = forwardAxisFlip ? -AXIS_VECTORS[forwardAxis] : AXIS_VECTORS[forwardAxis];
+		MVector upVector = upAxisFlip ? -AXIS_VECTORS[upAxis] : AXIS_VECTORS[upAxis];
+		MVector crossVector = (forwardVector ^ upVector).normal();
+
+		MMatrix aimMatrix = createMatrix(forwardVector, upVector, crossVector, MPoint::origin);
+
+		// Re-orient matrices
+		//
+		unsigned int numMatrices = matrices.length();
+		MMatrixArray newMatrices = MMatrixArray(numMatrices);
+		
+		for (unsigned int i = 0; i < numMatrices; i++)
+		{
+
+			newMatrices[i] = aimMatrix * matrices[i];
+
+		}
+
+		return newMatrices;
+
+	};
+
 	MVector matrixToPosition(const MMatrix& matrix)
 	/**
 	Extracts the position component from the supplied transform matrix.
@@ -316,6 +376,80 @@ namespace Maxformations
 		MPoint endPoint = matrixToPosition(endMatrix);
 
 		return MDistance(startPoint.distanceTo(endPoint), MDistance::uiUnit());
+
+	};
+
+	MEulerRotation::RotationOrder axisToRotationOrder(const AxisOrder axisOrder)
+	/**
+	Converts the supplied axis order to a rotation order.
+
+	@param axisOrder: The axis order to convert.
+	@return: The equivalent rotation order.
+	*/
+	{
+
+		switch (axisOrder)
+		{
+
+		case AxisOrder::xyz:
+			return MEulerRotation::kXYZ;
+
+		case AxisOrder::xzy:
+			return MEulerRotation::kXZY;
+
+		case AxisOrder::yzx:
+			return MEulerRotation::kYZX;
+
+		case AxisOrder::yxz:
+			return MEulerRotation::kYXZ;
+
+		case AxisOrder::zxy:
+			return MEulerRotation::kZXY;
+
+		case AxisOrder::zyx:
+			return MEulerRotation::kZYX;
+
+		default:
+			return MEulerRotation::kXYZ;
+
+		}
+
+	};
+
+	AxisOrder rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder)
+	/**
+	Converts the supplied rotation order to an axis order.
+
+	@param axisOrder: The rotation order to convert.
+	@return: The equivalent axis order.
+	*/
+	{
+
+		switch (rotationOrder)
+		{
+
+		case MEulerRotation::kXYZ:
+			return AxisOrder::xyz;
+
+		case MEulerRotation::kXZY:
+			return AxisOrder::xzy;
+
+		case MEulerRotation::kYZX:
+			return AxisOrder::yzx;
+
+		case MEulerRotation::kYXZ:
+			return AxisOrder::yxz;
+
+		case MEulerRotation::kZXY:
+			return AxisOrder::zxy;
+
+		case MEulerRotation::kZYX:
+			return AxisOrder::zyx;
+
+		default:
+			return AxisOrder::xyz;
+
+		}
 
 	};
 
@@ -714,6 +848,53 @@ namespace Maxformations
 			return matrixToEulerXYZ(matrix);
 
 		}
+
+	};
+
+	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const AxisOrder axisOrder)
+	/**
+	Converts the supplied transform matrix into an euler rotation using the specified axis order.
+
+	@param matrix: The matrix to convert.
+	@param axis: The axis order for the euler angles.
+	@return: The euler rotation.
+	*/
+	{
+
+		MEulerRotation::RotationOrder rotationOrder = axisToRotationOrder(axisOrder);
+		return matrixToEulerRotation(matrix, rotationOrder);
+
+	};
+
+	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const MEulerRotation::RotationOrder rotationOrder)
+		/**
+		Converts the supplied transform matrix into an euler rotation using the specified axis order.
+
+		@param matrix: The matrix to convert.
+		@param axis: The axis order for the euler angles.
+		@return: The euler rotation.
+		*/
+	{
+
+		MEulerRotation eulerRotation;
+		eulerRotation = matrix;
+		eulerRotation.reorderIt(rotationOrder);
+
+		return eulerRotation;
+
+	};
+
+	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const MTransformationMatrix::RotationOrder rotationOrder)
+		/**
+		Converts the supplied transform matrix into an euler rotation using the specified axis order.
+
+		@param matrix: The matrix to convert.
+		@param axis: The axis order for the euler angles.
+		@return: The euler rotation.
+		*/
+	{
+
+		return matrixToEulerRotation(matrix, MEulerRotation::RotationOrder(rotationOrder - 1));
 
 	};
 
@@ -1418,6 +1599,27 @@ namespace Maxformations
 		plug.destructHandle(dataHandle);
 
 		return status;
+
+	};
+
+	bool hasTypeId(const MObject& node, const MTypeId& id, MStatus* status)
+	/**
+	Evaluates if the supplied node has the specified type ID.
+
+	@param node: The node to evaluate.
+	@param id: The type id to compare against.
+	@param status: Status code.
+	@return: Has type ID.
+	*/
+	{
+
+		MFnDependencyNode fnDependNode(node, status);
+		CHECK_MSTATUS_AND_RETURN_IT(*status);
+
+		MTypeId otherId = fnDependNode.typeId(status);
+		CHECK_MSTATUS_AND_RETURN_IT(*status);
+
+		return id == otherId;
 
 	};
 
