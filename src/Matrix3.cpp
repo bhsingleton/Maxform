@@ -7,15 +7,15 @@
 #include "Maxformations.h"
 #include "Matrix3.h"
 
-MTypeId		Matrix3::id(0x0013b1cd);
+MTypeId	Matrix3::id(0x0013b1cd);
 
 
 Matrix3::Matrix3()
 { 
 	
-	this->transformValue = MMatrix::identity; 
-	this->preRotationValue = MQuaternion::identity;
 	this->enabled = false;
+	this->preRotationValue = MQuaternion::identity;
+	this->transformValue = MMatrix::identity; 
 
 };
 
@@ -59,36 +59,6 @@ The rotate orientation orients the local rotation space.
 
 		return MPxTransformationMatrix::preRotation();
 
-	}
-
-};
-
-
-MQuaternion Matrix3::rotateOrientation(MSpace::Space space, MStatus* status) const
-/**
-Returns the rotate orientation for the transformation matrix as a quaternion.
-The rotate orientation orients the local rotation space.
-
-@param space: The space to use.
-@param status: The return status.
-@return: The rotate orientation.
-*/
-{
-	
-	if (this->enabled && space == MSpace::kTransform)
-	{
-
-		MQuaternion quat;
-		quat = Maxformations::createRotationMatrix(this->transformValue);
-
-		return quat;
-
-	}
-	else
-	{
-
-		return MPxTransformationMatrix::rotateOrientation(space, status);
-		
 	}
 
 };
@@ -215,6 +185,21 @@ Updates the internal transformation matrix.
 {
 
 	this->transformValue = matrix;
+
+};
+
+
+void Matrix3::pushTransform()
+/**
+Pushes the transform value to the individual PRS values.
+
+@return: Void.
+*/
+{
+
+	this->translationValue = Maxformations::matrixToPosition(this->transformValue);
+	this->rotationValue = Maxformations::matrixToEulerRotation(this->transformValue, this->rotationOrder());
+	this->scaleValue = Maxformations::matrixToScale(this->transformValue);
 
 };
 
