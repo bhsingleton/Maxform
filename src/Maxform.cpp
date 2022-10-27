@@ -8,23 +8,27 @@
 
 #include "Maxform.h"
 
-MObject		Maxform::axisOrder;
-MObject		Maxform::preRotate;
-MObject		Maxform::preRotateX;
-MObject		Maxform::preRotateY;
-MObject		Maxform::preRotateZ;
-MObject		Maxform::transform;
+MObject	Maxform::preRotate;
+MObject	Maxform::preRotateX;
+MObject	Maxform::preRotateY;
+MObject	Maxform::preRotateZ;
+MObject	Maxform::transform;
 
-MObject		Maxform::translationPart;
-MObject		Maxform::rotationPart;
-MObject		Maxform::scalePart;
+MObject	Maxform::translationPart;
+MObject	Maxform::rotationPart;
+MObject	Maxform::scalePart;
 
-MString		Maxform::preRotateCategory("PreRotate");
-MString		Maxform::matrixCategory("Matrix");
-MString		Maxform::partsCategory("Parts");
+MString	Maxform::preRotateCategory("PreRotate");
+MString	Maxform::matrixCategory("Matrix");
+MString	Maxform::matrixPartsCategory("MatrixParts");
+MString	Maxform::worldMatrixCategory("WorldMatrix");
+MString	Maxform::parentMatrixCategory("ParentMatrix");
 
-MTypeId		Maxform::id(0x0013b1cc);
-MString		Maxform::classification("drawdb/geometry/transform/maxform");
+
+MCallbackId Maxform::preExportCallbackId(0);
+MCallbackId Maxform::postExportCallbackId(0);
+MString	Maxform::classification("drawdb/geometry/transform/maxform");
+MTypeId	Maxform::id(0x0013b1cc);
 
 
 Maxform::Maxform() {};
@@ -56,18 +60,51 @@ Only these values should be used when performing computations!
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	bool isMatrix = fnAttribute.hasCategory(Maxform::matrixCategory);
-	bool isMatrixPart = fnAttribute.hasCategory(Maxform::partsCategory);
+	bool isMatrixPart = fnAttribute.hasCategory(Maxform::matrixPartsCategory);
 	
-	if (isMatrixPart)
+	if (isMatrix)
 	{
 
-		// Get input data handles
+		// Get transform value
 		//
 		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		// Get input values
+		MMatrix transform = transformHandle.asMatrix();
+
+		MObject matrixData = Maxformations::createMatrixData(transform, &status);
+		MObject inverseMatrixData = Maxformations::createMatrixData(transform.inverse(), &status);
+
+		// Update data handles
 		//
+		MDataHandle matrixHandle = data.outputValue(Maxform::matrix, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle inverseMatrixHandle = data.outputValue(Maxform::inverseMatrix, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		matrixHandle.setMObject(matrixData);
+		matrixHandle.setClean();
+
+		inverseMatrixHandle.setMObject(inverseMatrixData);
+		inverseMatrixHandle.setClean();
+
+		// Mark plug as clean
+		//
+		status = data.setClean(plug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		return MS::kSuccess;
+
+	}
+	else if (isMatrixPart)
+	{
+
+		// Get transform value
+		//
+		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
 		MMatrix transform = transformHandle.asMatrix();
 
 		// Compute transform components
@@ -76,7 +113,7 @@ Only these values should be used when performing computations!
 		MMatrix rotationPart = Maxformations::createRotationMatrix(transform);
 		MMatrix scalePart = Maxformations::createScaleMatrix(transform);
 
-		// Get output data handles
+		// Update data handles
 		//
 		MDataHandle translationPartHandle = data.outputValue(Maxform::translationPart, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -87,8 +124,6 @@ Only these values should be used when performing computations!
 		MDataHandle scalePartHandle = data.outputValue(Maxform::scalePart, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		// Update output data handles
-		//
 		translationPartHandle.setMMatrix(translationPart);
 		translationPartHandle.setClean();
 
@@ -147,7 +182,7 @@ The caller needs to allocate space for the passed transformation matrix.
 
 		// Get input handles
 		//
-		MDataHandle axisOrderHandle = data.inputValue(Maxform::axisOrder, &status);
+		MDataHandle rotateOrderHandle = data.inputValue(Maxform::rotateOrder, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		MDataHandle preRotateHandle = data.inputValue(Maxform::preRotate, &status);
@@ -158,10 +193,10 @@ The caller needs to allocate space for the passed transformation matrix.
 
 		// Get input values
 		//
-		Maxformations::AxisOrder axisOrder = Maxformations::AxisOrder(axisOrderHandle.asShort());
-		MVector eulerAngles = preRotateHandle.asDouble3();
+		MEulerRotation::RotationOrder rotationOrder = MEulerRotation::RotationOrder(rotateOrderHandle.asShort());
+		MVector eulerAngles = preRotateHandle.asVector();
 
-		MQuaternion preRotate = Maxformations::eulerAnglesToQuaternion(eulerAngles, axisOrder);
+		MQuaternion preRotate = MEulerRotation(eulerAngles, rotationOrder).asQuaternion();
 		MMatrix transform = transformHandle.asMatrix();
 
 		matrix3->setPreRotation(preRotate);
@@ -176,6 +211,30 @@ The caller needs to allocate space for the passed transformation matrix.
 		return MPxTransform::computeLocalTransformation(xform, data);
 
 	}
+
+};
+
+
+void Maxform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
+/**
+Provide node-specific setup info for the Cached Playback system.
+
+@param evaluationNode: This node's evaluation node, contains animated plug information.
+@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
+@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
+@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
+@return: void.
+*/
+{
+
+	// Call parent function
+	//
+	MPxTransform::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
+	assert(!disablingInfo.getCacheDisabled());
+
+	// Update caching preference
+	//
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, false);
 
 };
 
@@ -306,30 +365,6 @@ You should return kUnknownParameter to specify that maya should handle this conn
 };
 
 
-void Maxform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
-/**
-Provide node-specific setup info for the Cached Playback system.
-
-@param evaluationNode: This node's evaluation node, contains animated plug information.
-@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
-@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
-@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
-@return: void.
-*/
-{
-
-	// Call parent function
-	//
-	MPxTransform::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
-	assert(!disablingInfo.getCacheDisabled());
-
-	// Update caching preference
-	//
-	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, false);
-
-};
-
-
 Matrix3* Maxform::matrix3Ptr()
 /**
 This function returns a pointer to the cached Matrix3 for the current context.
@@ -352,6 +387,19 @@ This function returns a pointer to the cached Matrix3 for the current context.
 		return nullptr;
 
 	}
+
+};
+
+
+MObjectHandle Maxform::thisMObjectHandle()
+/**
+Returns an object handle for this instance.
+
+@return: Object handle.
+*/
+{
+
+	return MObjectHandle(this->thisMObject());
 
 };
 
@@ -405,22 +453,6 @@ Use this function to define any static attributes.
 	MFnEnumAttribute fnEnumAttr;
 
 	// Input attributes:
-	// ".axisOrder" attribute
-	//
-	Maxform::axisOrder = fnEnumAttr.create("axisOrder", "ao", short(1), &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnEnumAttr.addField("xyz", 1));
-	CHECK_MSTATUS(fnEnumAttr.addField("xzy", 2));
-	CHECK_MSTATUS(fnEnumAttr.addField("yzx", 3));
-	CHECK_MSTATUS(fnEnumAttr.addField("yxz", 4));
-	CHECK_MSTATUS(fnEnumAttr.addField("zxy", 5));
-	CHECK_MSTATUS(fnEnumAttr.addField("zyx", 6));
-	CHECK_MSTATUS(fnEnumAttr.addField("xyx", 7));
-	CHECK_MSTATUS(fnEnumAttr.addField("yzy", 8));
-	CHECK_MSTATUS(fnEnumAttr.addField("zxz", 9));
-	CHECK_MSTATUS(fnEnumAttr.setChannelBox(true));
-
 	// ".preRotateX" attribute
 	//
 	Maxform::preRotateX = fnUnitAttr.create("preRotateX", "prx", MFnUnitAttribute::kAngle, 0.0, &status);
@@ -464,7 +496,7 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::partsCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::matrixPartsCategory));
 
 	// ".rotationPart" attribute
 	//
@@ -473,7 +505,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::partsCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::matrixPartsCategory));
 
 	// ".scalePart" attribute
 	//
@@ -482,7 +514,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::partsCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(Maxform::matrixPartsCategory));
 
 	// ".matrix" attribute
 	//
@@ -503,32 +535,31 @@ Use this function to define any static attributes.
 	status = fnTypedAttr.setObject(Maxform::parentMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::matrixCategory));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::parentMatrixCategory));
 
 	// ".parentInverseMatrix" attribute
 	//
 	status = fnTypedAttr.setObject(Maxform::parentInverseMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::matrixCategory));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::parentMatrixCategory));
 
 	// ".worldMatrix" attribute
 	//
 	status = fnTypedAttr.setObject(Maxform::worldMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::matrixCategory));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::worldMatrixCategory));
 
 	// ".worldInverseMatrix" attribute
 	//
 	status = fnTypedAttr.setObject(Maxform::worldInverseMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::matrixCategory));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Maxform::worldMatrixCategory));
 
 	// Add attributes to node
 	//
-	CHECK_MSTATUS(Maxform::addAttribute(Maxform::axisOrder));
 	CHECK_MSTATUS(Maxform::addAttribute(Maxform::preRotate));
 	CHECK_MSTATUS(Maxform::addAttribute(Maxform::transform));
 
