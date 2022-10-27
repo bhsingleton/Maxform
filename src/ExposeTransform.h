@@ -1,7 +1,7 @@
-#ifndef _ExposeTransform
-#define _ExposeTransform
+#ifndef _EXPOSE_TRANSFORM_NODE
+#define _EXPOSE_TRANSFORM_NODE
 //
-// File: ExposeTm.h
+// File: ExposeTransform.h
 //
 // Dependency Graph Node: exposeTm
 //
