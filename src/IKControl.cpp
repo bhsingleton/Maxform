@@ -8,7 +8,7 @@
 
 #include "IKControl.h"
 
-MObject	IKControl::ikGoal;
+MObject	IKControl::ikSubControl;
 MObject	IKControl::fkSubControl;
 MObject	IKControl::preferredRotation;
 MObject	IKControl::preferredRotationX;
@@ -16,7 +16,6 @@ MObject	IKControl::preferredRotationY;
 MObject	IKControl::preferredRotationZ;
 
 MString	IKControl::inputCategory("Input");
-MString	IKControl::outputCategory("Output");
 
 MTypeId	IKControl::id(0x0013b1d0);
 
@@ -49,20 +48,36 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isOutput = fnAttribute.hasCategory(IKControl::outputCategory);
+	bool isValue = fnAttribute.hasCategory(IKControl::valueCategory);
 
-	if (isOutput)
+	if (isValue)
 	{
 
-		// Copy value from data handle
-		//
-		MDataHandle ikGoalHandle = data.inputValue(IKControl::ikGoal, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
+		// Check if ik is enabled
+		// 
+		MDataHandle subControlHandle;
 
+		if (this->ikEnabled)
+		{
+
+			subControlHandle = data.inputValue(IKControl::ikSubControl, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		}
+		else
+		{
+
+			subControlHandle = data.inputValue(IKControl::fkSubControl, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		}
+
+		// Copy value to output data handle
+		//
 		MDataHandle valueHandle = data.outputValue(IKControl::value, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		status = valueHandle.copy(ikGoalHandle);
+		status = valueHandle.setMObject(subControlHandle.data());
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Mark plug as clean
@@ -116,6 +131,22 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		return MS::kSuccess;
 
 	}
+	else if (plug == IKControl::ikSubControl && asSrc)
+	{
+
+		// Evaluate if other node is a transform
+		//
+		MObject otherNode = otherPlug.node(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MFnDependencyNode fnDependNode(otherNode, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		isLegal = fnDependNode.typeId() == IKChainControl::id;
+
+		return MS::kSuccess;
+
+	}
 	else
 	{
 
@@ -142,10 +173,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == IKControl::fkSubControl && !asSrc) && this->prs == nullptr)
+	if ((plug == IKControl::fkSubControl && !asSrc) && otherPlug == PRS::value)
 	{
 
-		// Inspect other node
+		// Store reference to prs
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -153,17 +184,21 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		MFnDependencyNode fnDependNode(otherNode, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MTypeId otherId = fnDependNode.typeId(&status);
+		this->prs = static_cast<PRS*>(fnDependNode.userNode(&status));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		if (otherId == PRS::id)
-		{
-
-			this->prs = static_cast<PRS*>(fnDependNode.userNode());
-
-		}
+		this->prs->registerMasterController(this);
 
 	}
+	else if ((plug == IKControl::ikSubControl && !asSrc) && otherPlug == IKChainControl::goal)
+	{
+
+		// Indicate ik is now enabled
+		//
+		this->ikEnabled = true;
+
+	}
+	else;
 
 	return Matrix3Controller::connectionMade(plug, otherPlug, asSrc);
 
@@ -186,12 +221,25 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == IKControl::fkSubControl && !asSrc) && this->prs != nullptr)
+	if ((plug == IKControl::fkSubControl && !asSrc) && otherPlug == PRS::value)
 	{
 
+		// Cleanup reference to prs
+		//
+		this->prs->deregisterMasterController();
 		this->prs = nullptr;
 
 	}
+	else if (plug == IKControl::ikSubControl && !asSrc)
+	{
+
+		// Indicate ik is now disabled
+		// All computations will now revert back to the fk sub-controller
+		//
+		this->ikEnabled = false;
+
+	}
+	else;
 
 	return Matrix3Controller::connectionBroken(plug, otherPlug, asSrc);
 
@@ -248,22 +296,25 @@ Use this function to define any static attributes.
 	MFnMessageAttribute fnMessageAttr;
 
 	// Input attributes:
-	// ".fkGoal" attribute
+	// ".ikSubControl" attribute
 	//
-	IKControl::ikGoal = fnMatrixAttr.create("ikGoal", "ikg", MFnMatrixAttribute::kDouble, &status);
+	IKControl::ikSubControl = fnTypedAttr.create("ikSubControl", "iksc", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(&status));
 
 	// ".fkSubControl" attribute
 	//
-	IKControl::fkSubControl = fnMatrixAttr.create("fkSubControl", "fksc", MFnMatrixAttribute::kDouble, &status);
+	IKControl::fkSubControl = fnTypedAttr.create("fkSubControl", "fksc", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
+	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(&status));
 
 	// ".preferredRotationX" attribute
 	//
 	IKControl::preferredRotationX = fnUnitAttr.create("preferredRotationX", "prx", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnUnitAttr.setInternal(true));
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
 
@@ -272,7 +323,6 @@ Use this function to define any static attributes.
 	IKControl::preferredRotationY = fnUnitAttr.create("preferredRotationY", "pry", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnUnitAttr.setInternal(true));
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
 
@@ -281,7 +331,6 @@ Use this function to define any static attributes.
 	IKControl::preferredRotationZ = fnUnitAttr.create("preferredRotationZ", "prz", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnUnitAttr.setInternal(true));
 	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
 
@@ -299,13 +348,13 @@ Use this function to define any static attributes.
 
 	// Add attributes to node
 	//
-	CHECK_MSTATUS(IKControl::addAttribute(IKControl::ikGoal));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::ikSubControl));
 	CHECK_MSTATUS(IKControl::addAttribute(IKControl::fkSubControl));
 	CHECK_MSTATUS(IKControl::addAttribute(IKControl::preferredRotation));
 
 	// Define attribute relationships
 	//
-	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::ikGoal, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::ikSubControl, IKControl::value));
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::fkSubControl, IKControl::value));
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::preferredRotation, IKControl::value));
 

@@ -102,7 +102,7 @@ namespace Maxformations
 	MVector			matrixToPosition(const MMatrix& matrix);
 
 	MEulerRotation::RotationOrder	axisToRotationOrder(const AxisOrder axisOrder);
-	AxisOrder		rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
+	AxisOrder						rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
 
 	MVector			matrixToEulerXYZ(const MMatrix& matrix);
 	MVector			matrixToEulerXZY(const MMatrix& matrix);
@@ -130,8 +130,11 @@ namespace Maxformations
 	MDistance		distanceBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 	MAngle			angleBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 
-	MObject			createMatrixData(const MMatrix& matrix, MStatus* status);
-	MMatrix			getMatrixData(const MObject& matrixData, MStatus* status);
+	MObject					createMatrixData(const MMatrix& matrix);
+	MObject					createMatrixData(const MTransformationMatrix& transform);
+	MMatrix					getMatrixData(const MObject& matrixData);
+	MTransformationMatrix	getTransformData(const MObject& matrixData);
+
 	MStatus			resetMatrixPlug(MPlug& plug);
 
 	bool			isPartiallyConnected(const MPlug& plug, const bool asDst, const bool asSrc, MStatus* status);

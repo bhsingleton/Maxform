@@ -9,6 +9,7 @@
 //
 
 #include "Matrix3Controller.h"
+#include "IKControl.h"
 #include "PRS.h"
 
 #include <maya/MObject.h>
@@ -35,6 +36,9 @@
 #include <vector>
 
 
+class IKControl;  // Forward declaration for evaluating legal connections!
+
+
 struct JointItem
 {
 
@@ -56,7 +60,9 @@ public:
 	
 	static	std::vector<JointItem>	getJoints(MArrayDataHandle& arrayHandle);
 	static	MMatrix					guessVHTarget(const std::vector<JointItem>& joints, const int upAxis, const bool upAxisFlip);
+
 	static	MMatrixArray			solve(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const std::vector<JointItem>& joints);
+	static	MMatrixArray			solve1Bone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const JointItem& startJoint, const double length);
 	static	MMatrixArray			solve1Bone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const JointItem& startJoint, const JointItem& endJoint);
 	static	MMatrixArray			solve2Bone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const JointItem& startJoint, const JointItem& midJoint, const JointItem& endJoint);
 	static	MMatrixArray			solveNBone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const std::vector<JointItem>& joints);
@@ -71,33 +77,33 @@ public:
 
 public:
 
+	static	MObject					enabled;
+	static	MObject					ikGoal;
+	static	MObject					ikParentMatrix;
+	static	MObject					forwardAxis;
+	static	MObject					forwardAxisFlip;
+	static	MObject					upAxis;
+	static	MObject					upAxisFlip;
+	static	MObject					joint;
+	static	MObject					jointPreferredRotation;
+	static	MObject					jointPreferredRotationX;
+	static	MObject					jointPreferredRotationY;
+	static	MObject					jointPreferredRotationZ;
+	static	MObject					jointMatrix;
+	static	MObject					jointParentMatrix;
+	static	MObject					swivelAngle;
+	static	MObject					useVHTarget;
+	static	MObject					vhTarget;  // Stands for (v)ector (h)andle target!
 
-	static	MObject		enabled;
-	static	MObject		ikGoal;
-	static	MObject		forwardAxis;
-	static	MObject		forwardAxisFlip;
-	static	MObject		upAxis;
-	static	MObject		upAxisFlip;
-	static	MObject		joint;
-	static	MObject		jointPreferredRotation;
-	static	MObject		jointPreferredRotationX;
-	static	MObject		jointPreferredRotationY;
-	static	MObject		jointPreferredRotationZ;
-	static	MObject		jointMatrix;
-	static	MObject		swivelAngle;
-	static	MObject		useVHTarget;
-	static	MObject		vhTarget;
+	static	MObject					goal;
 
-	static	MObject		goal;
-
-	static	MString		inputCategory;
-	static	MString		goalCategory;
-
-	static	MTypeId		id;
+	static	MString					inputCategory;
+	static	MString					goalCategory;
+	static	MTypeId					id;
 
 protected:
 
-			PRS*		prs;
+			PRS*					prs;
 
 };
 

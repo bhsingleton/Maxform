@@ -297,9 +297,9 @@ namespace Maxformations
 	@return: The converted matrices.
 	*/
 	{
-
-		unsigned int numMatrices = matrices.length();
-		MMatrixArray newMatrices = MMatrixArray(numMatrices);
+		
+		MMatrixArray newMatrices = MMatrixArray(matrices);
+		unsigned int numMatrices = newMatrices.length();
 
 		for (unsigned int i = 1; i < numMatrices; i++)  // Skip the first item!
 		{
@@ -454,6 +454,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerXYZ(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `xyz` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double x, y, z;
@@ -493,6 +499,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerXZY(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `xzy` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double x, z, y;
@@ -532,6 +544,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerYXZ(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `yxz` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double y, x, z;
@@ -571,6 +589,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerYZX(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `yzx` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double y, x, z;
@@ -610,6 +634,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerZXY(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `zxy` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double z, x, y;
@@ -649,6 +679,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerZYX(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `zyx` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double z, y, x;
@@ -688,6 +724,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerXYX(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `xyx` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double x0, y, x1;
@@ -727,6 +769,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerYZY(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `yzy` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double y0, z, y1;
@@ -766,6 +814,12 @@ namespace Maxformations
 	};
 
 	MVector matrixToEulerZXZ(const MMatrix& matrix)
+	/**
+	Converts the supplied transform matrix into euler angles using the `zxz` axis order.
+
+	@param matrix: The matrix to extract from.
+	@return: The euler angles in radians.
+	*/
 	{
 
 		double z0, x, z1;
@@ -868,10 +922,10 @@ namespace Maxformations
 
 	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const MEulerRotation::RotationOrder rotationOrder)
 		/**
-		Converts the supplied transform matrix into an euler rotation using the specified axis order.
+		Converts the supplied transform matrix into an euler rotation using the specified rotation order.
 
 		@param matrix: The matrix to convert.
-		@param axis: The axis order for the euler angles.
+		@param axis: The rotation order for the euler angles.
 		@return: The euler rotation.
 		*/
 	{
@@ -886,10 +940,10 @@ namespace Maxformations
 
 	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const MTransformationMatrix::RotationOrder rotationOrder)
 		/**
-		Converts the supplied transform matrix into an euler rotation using the specified axis order.
+		Converts the supplied transform matrix into an euler rotation using the specified rotation order.
 
 		@param matrix: The matrix to convert.
-		@param axis: The axis order for the euler angles.
+		@param axis: The rotation order for the euler angles.
 		@return: The euler rotation.
 		*/
 	{
@@ -1049,7 +1103,7 @@ namespace Maxformations
 
 	};
 
-	MObject createMatrixData(const MMatrix& matrix, MStatus* status)
+	MObject createMatrixData(const MMatrix& matrix)
 	/**
 	Returns a matrix data object from the supplied matrix.
 
@@ -1059,23 +1113,53 @@ namespace Maxformations
 	*/
 	{
 
+		MStatus status;
+
 		// Create new matrix data
 		//
 		MFnMatrixData fnMatrixData;
 
-		MObject matrixData = fnMatrixData.create(status);
-		CHECK_MSTATUS_AND_RETURN(*status, MObject::kNullObj);
+		MObject matrixData = fnMatrixData.create(&status);
+		CHECK_MSTATUS_AND_RETURN(status, MObject::kNullObj);
 
 		// Assign identity matrix
 		//
-		*status = fnMatrixData.set(matrix);
-		CHECK_MSTATUS_AND_RETURN(*status, MObject::kNullObj);
+		status = fnMatrixData.set(matrix);
+		CHECK_MSTATUS_AND_RETURN(status, MObject::kNullObj);
 
 		return matrixData;
 
 	};
 
-	MMatrix	getMatrixData(const MObject& matrixData, MStatus* status)
+	MObject createMatrixData(const MTransformationMatrix& transform)
+	/**
+	Returns a matrix data object from the supplied transformation matrix.
+
+	@param matrix: The transformation matrix to convert.
+	@param status: Status code.
+	@return: Matrix data object.
+	*/
+	{
+
+		MStatus status;
+
+		// Create new matrix data
+		//
+		MFnMatrixData fnMatrixData;
+
+		MObject matrixData = fnMatrixData.create(&status);
+		CHECK_MSTATUS_AND_RETURN(status, MObject::kNullObj);
+
+		// Assign identity matrix
+		//
+		status = fnMatrixData.set(transform);
+		CHECK_MSTATUS_AND_RETURN(status, MObject::kNullObj);
+
+		return matrixData;
+
+	};
+
+	MMatrix	getMatrixData(const MObject& matrixData)
 	/**
 	Returns the matrix value from the supplied matrix data object.
 
@@ -1085,30 +1169,54 @@ namespace Maxformations
 	*/
 	{
 
-		MFnMatrixData fnMatrixData(matrixData, status);
-		CHECK_MSTATUS_AND_RETURN(*status, MMatrix::identity);
+		MStatus status;
 
-		MMatrix matrix = fnMatrixData.matrix(status);
-		CHECK_MSTATUS_AND_RETURN(*status, MMatrix::identity);
+		MFnMatrixData fnMatrixData(matrixData, &status);
+		CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
+
+		MMatrix matrix = fnMatrixData.matrix(&status);
+		CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
 
 		return matrix;
 
 	};
 
-	MStatus resetMatrixPlug(MPlug& plug)
-		/**
-		Resets the matrix value on the supplied plug.
+	MTransformationMatrix getTransformData(const MObject& matrixData)
+	/**
+	Returns the transformation matrix from the supplied matrix data object.
 
-		@param plug: The plug to reset.
-		@return: Status code.
-		*/
+	@param matrixData: The matrix data object.
+	@param status: Status code.
+	@return: The matrix value.
+	*/
+	{
+
+		MStatus status;
+
+		MFnMatrixData fnMatrixData(matrixData, &status);
+		CHECK_MSTATUS_AND_RETURN(status, MTransformationMatrix::identity);
+
+		MTransformationMatrix transformationMatrix = fnMatrixData.transformation(&status);
+		CHECK_MSTATUS_AND_RETURN(status, MTransformationMatrix::identity);
+
+		return transformationMatrix;
+
+	};
+
+	MStatus resetMatrixPlug(MPlug& plug)
+	/**
+	Resets the matrix value on the supplied plug.
+
+	@param plug: The plug to reset.
+	@return: Status code.
+	*/
 	{
 
 		MStatus status;
 
 		// Assign identity matrix to plug
 		//
-		MObject matrixData = createMatrixData(MMatrix::identity, &status);
+		MObject matrixData = createMatrixData(MMatrix::identity);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		status = plug.setMObject(matrixData);

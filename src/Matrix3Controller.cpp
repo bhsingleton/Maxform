@@ -6,8 +6,11 @@
 
 #include "Matrix3Controller.h"
 
+MObject Matrix3Controller::IDENTITY_MATRIX_DATA;
+
 MObject	Matrix3Controller::value;
 MString	Matrix3Controller::valueCategory("Value");
+
 MTypeId	Matrix3Controller::id(0x0013b1d1);
 
 
@@ -50,10 +53,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == Matrix3Controller::value && asSrc) && this->maxform == nullptr)
+	if ((plug == Matrix3Controller::value && asSrc) && otherPlug == Maxform::transform)
 	{
 
-		// Inspect other node
+		// Store reference to maxform
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -61,15 +64,8 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		MFnDependencyNode fnDependNode(otherNode, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MTypeId otherId = fnDependNode.typeId(&status);
+		this->maxform = static_cast<Maxform*>(fnDependNode.userNode(&status));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == Maxform::id)
-		{
-
-			this->maxform = static_cast<Maxform*>(fnDependNode.userNode());
-
-		}
 
 	}
 
@@ -94,9 +90,11 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == Matrix3Controller::value && asSrc) && this->maxform != nullptr)
+	if ((plug == Matrix3Controller::value && asSrc) && otherPlug == Maxform::transform)
 	{
 
+		// Cleanup reference to maxform
+		//
 		this->maxform = nullptr;
 
 	}
@@ -161,15 +159,20 @@ Use this function to define any static attributes.
 
 	// Initialize function sets
 	//
-	MFnMatrixAttribute fnMatrixAttr;
+	MFnTypedAttribute fnTypedAttr;
+
+	// Define default matrix value
+	//
+	Matrix3Controller::IDENTITY_MATRIX_DATA = Maxformations::createMatrixData(MMatrix::identity);
 
 	// ".value" attribute
 	//
-	Matrix3Controller::value = fnMatrixAttr.create("value", "v", MFnMatrixAttribute::kDouble, &status);
+	Matrix3Controller::value = fnTypedAttr.create("value", "v", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
-	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
+	CHECK_MSTATUS(fnTypedAttr.setWritable(false));
+	CHECK_MSTATUS(fnTypedAttr.setStorable(false));
+	CHECK_MSTATUS(fnTypedAttr.addToCategory(Matrix3Controller::valueCategory));
 
 	// Add attributes to node
 	//

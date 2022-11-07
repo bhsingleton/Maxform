@@ -39,14 +39,18 @@ public:
 
 public:
 
+	static	MObject		IDENTITY_MATRIX_DATA;
+
+public:
+
 	static	MObject		value;
 	static	MString		valueCategory;
+	
 	static	MTypeId		id;
 
 protected:
 			
 			Maxform*	maxform;
-
 };
 
 #endif

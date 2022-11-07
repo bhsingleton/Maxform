@@ -11,11 +11,14 @@ MTypeId	Matrix3::id(0x0013b1cd);
 
 
 Matrix3::Matrix3()
+/**
+Constructor.
+*/
 { 
 	
 	this->enabled = false;
 	this->preRotationValue = MQuaternion::identity;
-	this->transformValue = MMatrix::identity; 
+	this->transformValue = MTransformationMatrix::identity; 
 
 };
 
@@ -75,7 +78,7 @@ Returns the four by four matrix that describes this transformation.
 	if (this->enabled)
 	{
 		
-		return this->transformValue;
+		return this->transformValue.asMatrix();
 		
 	}
 	else
@@ -99,7 +102,7 @@ Returns the rotate section of the transformation matrix.
 	if (this->enabled)
 	{
 
-		return Maxformations::createRotationMatrix(this->transformValue);
+		return this->transformValue.asRotateMatrix();
 
 	}
 	else
@@ -124,7 +127,7 @@ The scale matrix takes points from object space to the space immediately followi
 	if (this->enabled)
 	{
 
-		return Maxformations::createScaleMatrix(this->transformValue);
+		return this->transformValue.asScaleMatrix();
 
 	}
 	else
@@ -148,7 +151,7 @@ Returns the custom transformation matrix as a standard MTransformationMatrix.
 	if (this->enabled)
 	{
 
-		return MTransformationMatrix(this->transformValue);
+		return this->transformValue;
 
 	}
 	else
@@ -175,7 +178,7 @@ Updates the internal pre-rotation quaternion.
 };
 
 
-void Matrix3::setTransform(const MMatrix& matrix)
+void Matrix3::setTransform(const MTransformationMatrix& transform)
 /**
 Updates the internal transformation matrix.
 
@@ -184,22 +187,7 @@ Updates the internal transformation matrix.
 */
 {
 
-	this->transformValue = matrix;
-
-};
-
-
-void Matrix3::pushTransform()
-/**
-Pushes the transform value to the individual PRS values.
-
-@return: Void.
-*/
-{
-
-	this->translationValue = Maxformations::matrixToPosition(this->transformValue);
-	this->rotationValue = Maxformations::matrixToEulerRotation(this->transformValue, this->rotationOrder());
-	this->scaleValue = Maxformations::matrixToScale(this->transformValue);
+	this->transformValue = transform;
 
 };
 

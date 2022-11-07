@@ -46,8 +46,7 @@ public:
 	virtual	MTransformationMatrix		asTransformationMatrix() const override;
 
 	virtual	void						setPreRotation(const MQuaternion& preRotate);
-	virtual	void						setTransform(const MMatrix& matrix);
-	virtual	void						pushTransform();
+	virtual	void						setTransform(const MTransformationMatrix& transform);
 
 	virtual	bool						isEnabled();
 	virtual	void						enable();
@@ -59,7 +58,7 @@ protected:
 			
 			bool						enabled;
 			MQuaternion					preRotationValue;
-			MMatrix						transformValue;
+			MTransformationMatrix		transformValue;
 
 };
 #endif

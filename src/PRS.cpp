@@ -30,8 +30,8 @@ MString	PRS::scaleCategory("Scale");
 MTypeId	PRS::id(0x0013b1cb);
 
 
-PRS::PRS() { this->matrix3Controller = nullptr; };
-PRS::~PRS() { this->matrix3Controller = nullptr; };
+PRS::PRS() { this->isSlaveController = false;  this->masterController = nullptr; };
+PRS::~PRS() { this->isSlaveController = false; this->masterController = nullptr; };
 
 
 MStatus PRS::compute(const MPlug& plug, MDataBlock& data) 
@@ -95,8 +95,8 @@ Only these values should be used when performing computations!
 		double yRotation = yRotationHandle.asAngle().asRadians();
 		double zRotation = zRotationHandle.asAngle().asRadians();
 
-		MEulerRotation::RotationOrder axisOrder = MEulerRotation::RotationOrder(axisOrderHandle.asShort());
-		MEulerRotation eulerRotation = MEulerRotation(xRotation, yRotation, zRotation, axisOrder);
+		MTransformationMatrix::RotationOrder axisOrder = MTransformationMatrix::RotationOrder(axisOrderHandle.asShort() + 1);
+		double3 eulerAngles = { xRotation, yRotation, zRotation };
 
 		// Get scale value
 		//
@@ -104,16 +104,17 @@ Only these values should be used when performing computations!
 		double yScale = yScaleHandle.asDouble();
 		double zScale = zScaleHandle.asDouble();
 
-		MVector scale = MVector(xScale, yScale, zScale);
+		double3 scale = { xScale, yScale, zScale };
 		
 		// Compose transform matrix
 		//
-		MMatrix positionMatrix = Maxformations::createPositionMatrix(position);
-		MMatrix rotationMatrix = eulerRotation.asMatrix();
-		MMatrix scaleMatrix = Maxformations::createScaleMatrix(scale);
+		MTransformationMatrix transform = MTransformationMatrix(MMatrix::identity);
+		transform.setTranslation(position, MSpace::kTransform);
+		transform.setRotation(eulerAngles, axisOrder);
+		transform.setScale(scale, MSpace::kTransform);
 
-		MMatrix matrix = scaleMatrix * rotationMatrix * positionMatrix;
-		
+		MObject transformData = Maxformations::createMatrixData(transform);
+
 		// Get output data handles
 		//
 		MDataHandle valueHandle = data.outputValue(PRS::value, &status);
@@ -121,7 +122,7 @@ Only these values should be used when performing computations!
 
 		// Update output data handles
 		//
-		valueHandle.setMMatrix(matrix);
+		valueHandle.setMObject(transformData);
 		valueHandle.setClean();
 
 		// Mark plug as clean
@@ -166,6 +167,62 @@ See pluginMain.cpp for details.
 {
 
 	return new PRS();
+
+};
+
+
+void PRS::registerMasterController(Matrix3Controller* controller)
+/**
+Instructs this PRS node to call the supplied controller when retrieving the Maxform pointer.
+This is useful for nested PRS nodes that are used under IK controllers.
+
+@param controller: The master controller.
+@return: Null.
+*/
+{
+
+	this->masterController = controller;
+	this->isSlaveController = true;
+
+};
+
+
+void PRS::deregisterMasterController()
+/**
+Removes all references to any registered master controllers.
+Once called the PRS node will resume using the internal Maxform pointer.
+
+@return: Null.
+*/
+{
+
+	this->masterController = nullptr;
+	this->isSlaveController = false;
+
+};
+
+
+Maxform* PRS::maxformPtr()
+/**
+Returns the maxform node associated with this matrix3 controller.
+If no maxform node exists then a null pointer is returned instead!
+
+@return: Maxform pointer.
+*/
+{
+
+	if (this->isSlaveController && this->masterController != nullptr)
+	{
+
+		return this->masterController->maxformPtr();
+
+	}
+	else
+	{
+
+		return Matrix3Controller::maxformPtr();
+
+	}
 
 };
 

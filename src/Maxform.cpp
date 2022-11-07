@@ -25,8 +25,6 @@ MString	Maxform::worldMatrixCategory("WorldMatrix");
 MString	Maxform::parentMatrixCategory("ParentMatrix");
 
 
-MCallbackId Maxform::preExportCallbackId(0);
-MCallbackId Maxform::postExportCallbackId(0);
 MString	Maxform::classification("drawdb/geometry/transform/maxform");
 MTypeId	Maxform::id(0x0013b1cc);
 
@@ -59,10 +57,9 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	bool isMatrix = fnAttribute.hasCategory(Maxform::matrixCategory);
 	bool isMatrixPart = fnAttribute.hasCategory(Maxform::matrixPartsCategory);
 	
-	if (isMatrix)
+	if (isMatrixPart)
 	{
 
 		// Get transform value
@@ -70,48 +67,8 @@ Only these values should be used when performing computations!
 		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MMatrix transform = transformHandle.asMatrix();
-
-		MObject matrixData = Maxformations::createMatrixData(transform, &status);
-		MObject inverseMatrixData = Maxformations::createMatrixData(transform.inverse(), &status);
-
-		// Update data handles
-		//
-		MDataHandle matrixHandle = data.outputValue(Maxform::matrix, &status);
+		MTransformationMatrix transform = Maxformations::getTransformData(transformHandle.data());
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle inverseMatrixHandle = data.outputValue(Maxform::inverseMatrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		matrixHandle.setMObject(matrixData);
-		matrixHandle.setClean();
-
-		inverseMatrixHandle.setMObject(inverseMatrixData);
-		inverseMatrixHandle.setClean();
-
-		// Mark plug as clean
-		//
-		status = data.setClean(plug);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		return MS::kSuccess;
-
-	}
-	else if (isMatrixPart)
-	{
-
-		// Get transform value
-		//
-		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MMatrix transform = transformHandle.asMatrix();
-
-		// Compute transform components
-		//
-		MMatrix translationPart = Maxformations::createPositionMatrix(transform);
-		MMatrix rotationPart = Maxformations::createRotationMatrix(transform);
-		MMatrix scalePart = Maxformations::createScaleMatrix(transform);
 
 		// Update data handles
 		//
@@ -124,13 +81,13 @@ Only these values should be used when performing computations!
 		MDataHandle scalePartHandle = data.outputValue(Maxform::scalePart, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		translationPartHandle.setMMatrix(translationPart);
+		translationPartHandle.setMMatrix(Maxformations::createPositionMatrix(transform.asMatrix()));  // Why is there no .asTranslateMatrix()?
 		translationPartHandle.setClean();
 
-		rotationPartHandle.setMMatrix(rotationPart);
+		rotationPartHandle.setMMatrix(transform.asRotateMatrix());
 		rotationPartHandle.setClean();
 
-		scalePartHandle.setMMatrix(scalePart);
+		scalePartHandle.setMMatrix(transform.asScaleMatrix());
 		scalePartHandle.setClean();
 
 		// Mark plug as clean
@@ -180,7 +137,7 @@ The caller needs to allocate space for the passed transformation matrix.
 	if (matrix3->isEnabled())
 	{
 
-		// Get input handles
+		// Get input data handles
 		//
 		MDataHandle rotateOrderHandle = data.inputValue(Maxform::rotateOrder, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -191,13 +148,16 @@ The caller needs to allocate space for the passed transformation matrix.
 		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		// Get input values
+		// Compose pre-rotation
 		//
 		MEulerRotation::RotationOrder rotationOrder = MEulerRotation::RotationOrder(rotateOrderHandle.asShort());
 		MVector eulerAngles = preRotateHandle.asVector();
 
 		MQuaternion preRotate = MEulerRotation(eulerAngles, rotationOrder).asQuaternion();
-		MMatrix transform = transformHandle.asMatrix();
+
+		// Update matrix3 values
+		//
+		MTransformationMatrix transform = Maxformations::getTransformData(transformHandle.data());
 
 		matrix3->setPreRotation(preRotate);
 		matrix3->setTransform(transform);
@@ -483,10 +443,10 @@ Use this function to define any static attributes.
 
 	// ".transform" attribute
 	//
-	Maxform::transform = fnMatrixAttr.create("transform", "tf", MFnMatrixAttribute::kDouble, &status);
+	Maxform::transform = fnTypedAttr.create("transform", "tf", MFnData::kMatrix, Maxformations::createMatrixData(MTransformationMatrix::identity), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnMatrixAttr.setAffectsWorldSpace(true));
+	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(true));
 
 	// Output attributes:
 	// ".translationPart" attribute

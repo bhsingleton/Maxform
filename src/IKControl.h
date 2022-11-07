@@ -9,6 +9,7 @@
 //
 
 #include "Matrix3Controller.h"
+#include "IKChainControl.h"
 #include "PRS.h"
 
 #include <maya/MObject.h>
@@ -31,6 +32,9 @@
 #include <math.h>
 
 
+class IKChainControl;  // Forward declaration for evaluating legal connections!
+
+
 class IKControl : public Matrix3Controller
 {
 
@@ -51,7 +55,7 @@ public:
 
 public:
 	
-	static	MObject		ikGoal;
+	static	MObject		ikSubControl;
 	static	MObject		fkSubControl;
 	static	MObject		preferredRotation;
 	static	MObject		preferredRotationX;
@@ -59,16 +63,12 @@ public:
 	static	MObject		preferredRotationZ;
 	
 	static	MString		inputCategory;
-	static	MString		outputCategory;
 
 	static	MTypeId		id;
 	
 protected:
 
-			MAngle		preferredAngleX;
-			MAngle		preferredAngleY;
-			MAngle		preferredAngleZ;
-
+			bool		ikEnabled;
 			PRS*		prs;
 
 };

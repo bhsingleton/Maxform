@@ -84,8 +84,6 @@ public:
 	static	MString		parentMatrixCategory;
 	static	MString		worldMatrixCategory;
 
-	static	MCallbackId	preExportCallbackId;
-	static	MCallbackId	postExportCallbackId;
 	static	MString		classification;
 	static	MTypeId		id;
 

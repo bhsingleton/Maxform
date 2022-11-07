@@ -45,6 +45,11 @@ public:
 	static  void*		creator();
 	static  MStatus		initialize();
 
+	virtual	void		registerMasterController(Matrix3Controller* controller);
+	virtual	void		deregisterMasterController();
+
+	virtual	Maxform*	maxformPtr() override;
+
 public:
 
 	static	MObject		position;
@@ -71,7 +76,9 @@ public:
 	static	MTypeId		id;
 
 protected:
-			
-			Matrix3Controller*	matrix3Controller;
+
+			bool				isSlaveController;
+			Matrix3Controller*	masterController;
+
 };
 #endif
