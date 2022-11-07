@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(maxform)
+project(Maxform)
 include($ENV{DEVKIT_LOCATION}/cmake/pluginEntry.cmake)
 
 set(
