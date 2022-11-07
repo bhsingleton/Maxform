@@ -25,7 +25,7 @@ MStatus initializePlugin(MObject obj)
 
 	// Register nodes
 	//
-	MFnPlugin plugin(obj, "Ben Singleton", "2017", "Any");
+	MFnPlugin plugin(obj, "Ben Singleton", "2023", "Any");
 
 	status = plugin.registerTransform("maxform", Maxform::id, Maxform::creator, Maxform::initialize, Matrix3::creator, Matrix3::id, &Maxform::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
