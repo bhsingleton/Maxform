@@ -48,8 +48,8 @@ public:
 						ExposeTransform();
 	virtual				~ExposeTransform();
 
-	virtual MStatus		compute(const MPlug& plug, MDataBlock& data)
-		;
+	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
+
 	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& dataHandle);
 
 	virtual	MStatus		legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
