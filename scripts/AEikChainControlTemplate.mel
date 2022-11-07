@@ -1,0 +1,38 @@
+global proc AEikChainControlTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        editorTemplate -beginLayout "IK-Chain Control Attributes" -collapse false;
+			
+			editorTemplate -addControl "enabled";
+            editorTemplate -addControl "forwardAxis";
+			editorTemplate -addControl "forwardAxisFlip";
+			editorTemplate -addControl "upAxis";
+			editorTemplate -addControl "upAxisFlip";
+			editorTemplate -addControl "swivelAngle";
+			
+        editorTemplate -endLayout;
+        
+		editorTemplate -beginLayout "IK Goal" -collapse false;
+			
+			editorTemplate -addControl "ikGoal";
+			editorTemplate -suppress "ikParentMatrix";
+			
+        editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Vector-Handle Target" -collapse false;
+			
+			editorTemplate -addControl "useVHTarget";
+			editorTemplate -addControl "vhTarget";
+			
+        editorTemplate -endLayout;
+		
+		editorTemplate -addControl "joint";
+		
+        AEdependNodeTemplate $nodeName;
+        editorTemplate -addExtraControls;
+        
+    editorTemplate -endScrollLayout;
+    
+}

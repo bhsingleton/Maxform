@@ -1,0 +1,20 @@
+global proc AEikControlTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        editorTemplate -beginLayout "IK-Control Attributes" -collapse false;
+			
+			editorTemplate -addControl "preferredRotation";
+        
+        editorTemplate -endLayout;
+		
+		editorTemplate -suppress "ikSubControl";
+		editorTemplate -suppress "fkSubControl";
+		
+        AEdependNodeTemplate $nodeName;
+        editorTemplate -addExtraControls;
+        
+    editorTemplate -endScrollLayout;
+    
+}
