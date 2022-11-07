@@ -446,7 +446,9 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		if (otherId == PRS::id)
 		{
 
-			this->prs = static_cast<PRS*>(fnDependNode.userNode());
+			this->prs = static_cast<PRS*>(fnDependNode.userNode(&status));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
 			this->updateActiveController();
 
 		}
