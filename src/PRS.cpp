@@ -1,5 +1,5 @@
 //
-// File: PRSNode.cpp
+// File: PRS.cpp
 //
 // Dependency Graph Node: prs
 //
@@ -31,7 +31,7 @@ MTypeId	PRS::id(0x0013b1cb);
 
 
 PRS::PRS() { this->isSlaveController = false;  this->masterController = nullptr; };
-PRS::~PRS() { this->isSlaveController = false; this->masterController = nullptr; };
+PRS::~PRS() { this->masterController = nullptr; };
 
 
 MStatus PRS::compute(const MPlug& plug, MDataBlock& data) 
