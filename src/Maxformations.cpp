@@ -102,35 +102,35 @@ namespace Maxformations
 		switch (axisOrder)
 		{
 
-		case AxisOrder::xyz:
-			return rotateXMatrix * rotateYMatrix * rotateZMatrix;
+			case AxisOrder::xyz:
+				return rotateXMatrix * rotateYMatrix * rotateZMatrix;
 
-		case AxisOrder::xzy:
-			return rotateXMatrix * rotateZMatrix * rotateYMatrix;
+			case AxisOrder::xzy:
+				return rotateXMatrix * rotateZMatrix * rotateYMatrix;
 
-		case AxisOrder::yzx:
-			return rotateYMatrix * rotateZMatrix * rotateXMatrix;
+			case AxisOrder::yzx:
+				return rotateYMatrix * rotateZMatrix * rotateXMatrix;
 
-		case AxisOrder::yxz:
-			return rotateYMatrix * rotateXMatrix * rotateZMatrix;
+			case AxisOrder::yxz:
+				return rotateYMatrix * rotateXMatrix * rotateZMatrix;
 
-		case AxisOrder::zxy:
-			return rotateZMatrix * rotateXMatrix * rotateYMatrix;
+			case AxisOrder::zxy:
+				return rotateZMatrix * rotateXMatrix * rotateYMatrix;
 
-		case AxisOrder::zyx:
-			return rotateZMatrix * rotateYMatrix * rotateXMatrix;
+			case AxisOrder::zyx:
+				return rotateZMatrix * rotateYMatrix * rotateXMatrix;
 
-		case AxisOrder::xyx:
-			return rotateXMatrix * rotateYMatrix * rotateXMatrix;
+			case AxisOrder::xyx:
+				return rotateXMatrix * rotateYMatrix * rotateXMatrix;
 
-		case AxisOrder::yzy:
-			return rotateYMatrix * rotateZMatrix * rotateYMatrix;
+			case AxisOrder::yzy:
+				return rotateYMatrix * rotateZMatrix * rotateYMatrix;
 
-		case AxisOrder::zxz:
-			return rotateZMatrix * rotateXMatrix * rotateZMatrix;
+			case AxisOrder::zxz:
+				return rotateZMatrix * rotateXMatrix * rotateZMatrix;
 
-		default:
-			return MMatrix(MMatrix::identity);
+			default:
+				return MMatrix(MMatrix::identity);
 
 		}
 
@@ -167,6 +167,179 @@ namespace Maxformations
 		};
 
 		return MMatrix(rows);
+
+	};
+
+	MVector getAxisVector(const int axis, const bool flip)
+	/**
+	Returns the vector for the specified axis.
+
+	@param axis: The requested axis.
+	@param flip: Determines if the axis should be inversed.
+	@return: The associated axis vector.
+	*/
+	{
+
+		switch (axis)
+		{
+
+			case 0:
+				return flip ? MVector::xNegAxis : MVector::xAxis;
+
+			case 1:
+				return flip ? MVector::yNegAxis : MVector::yAxis;
+
+			case 2:
+				return flip ? MVector::zNegAxis : MVector::zAxis;
+
+			default:
+				return flip ? MVector::xNegAxis : MVector::xAxis;
+
+		}
+
+	};
+
+	MStatus createAimMatrix(const MVector& forwardVector, const int forwardAxis, const MVector& upVector, const int upAxis, const MPoint& origin, MMatrix& matrix)
+	/**
+	Creates an aim matrix from the supplied parameters.
+	Both of the supplied axes must be unique!
+
+	@param forwardVector: The forward vector.
+	@param forwardAxis: The forward axis.
+	@param upVector: The up vector.
+	@param upAxis: The up axis.
+	@param origin: The point of origin.
+	@param matrix: The passed matrix to populate.
+	@return: Return status.
+	*/
+	{
+
+		MVector xAxis = MVector::xAxis;
+		MVector yAxis = MVector::yAxis;
+		MVector zAxis = MVector::zAxis;
+
+		switch (forwardAxis)
+		{
+
+			case 0:
+			{
+
+				xAxis = forwardVector;
+
+				if (upAxis == 1)
+				{
+
+					zAxis = xAxis ^ upVector;
+					yAxis = zAxis ^ xAxis;
+
+				}
+				else if (upAxis == 2)
+				{
+
+					yAxis = upVector ^ xAxis;
+					zAxis = xAxis ^ yAxis;
+
+				}
+				else
+				{
+
+					return MS::kFailure;
+
+				}
+
+			}
+			break;
+
+			case 1:
+			{
+
+				yAxis = forwardVector;
+
+				if (upAxis == 0)
+				{
+
+					zAxis = upVector ^ yAxis;
+					xAxis = yAxis ^ zAxis;
+
+				}
+				else if (upAxis == 2)
+				{
+
+					xAxis = yAxis ^ upVector;
+					zAxis = xAxis ^ yAxis;
+
+				}
+				else
+				{
+
+					return MS::kFailure;
+
+				}
+
+			}
+			break;
+
+			case 2:
+			{
+
+				zAxis = forwardVector;
+
+				if (upAxis == 0)
+				{
+
+					yAxis = zAxis ^ upVector;
+					xAxis = yAxis ^ zAxis;
+
+				}
+				else if (upAxis == 1)
+				{
+
+					xAxis = upVector ^ zAxis;
+					yAxis = zAxis ^ xAxis;
+
+				}
+				else
+				{
+
+					return MS::kFailure;
+
+				}
+
+			}
+			break;
+
+			default:
+			{
+
+				return MS::kFailure;
+
+			}
+
+		}
+
+		matrix = createMatrix(xAxis, yAxis, zAxis, origin);
+		return MS::kSuccess;
+
+	};
+
+	MStatus createAimMatrix(const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip, MMatrix& matrix)
+	/**
+	Creates an aim matrix from the supplied parameters.
+	Both of the supplied axes must be unique!
+
+	@param forwardAxis: The forward axis.
+	@param forwardAxisFlip: Determines if the forward axis is inversed.
+	@param upAxis: The up axis.
+	@param upAxisFlip: Determines if the up axis is inversed.
+	@param matrix: The passed matrix to populate.
+	@return: Return status.
+	*/
+	{
+
+		MVector forwardVector = forwardAxisFlip ? MVector::xNegAxis : MVector::xAxis;
+		MVector upVector = upAxisFlip ? MVector::yNegAxis : MVector::yAxis;
+
+		return createAimMatrix(forwardVector, forwardAxis, upVector, upAxis, MPoint::origin, matrix);
 
 	};
 
@@ -312,7 +485,7 @@ namespace Maxformations
 
 	};
 
-	MMatrixArray reorientMatrices(const MMatrixArray& matrices, int forwardAxis, bool forwardAxisFlip, int upAxis, bool upAxisFlip)
+	MStatus reorientMatrices(MMatrixArray& matrices, int forwardAxis, bool forwardAxisFlip, int upAxis, bool upAxisFlip)
 	/**
 	Returns an array of matrices that are re-oriented based on the supplied axis alignments.
 
@@ -325,27 +498,27 @@ namespace Maxformations
 	*/
 	{
 
+		MStatus status;
+
 		// Compose aim matrix
 		//
-		MVector forwardVector = forwardAxisFlip ? -AXIS_VECTORS[forwardAxis] : AXIS_VECTORS[forwardAxis];
-		MVector upVector = upAxisFlip ? -AXIS_VECTORS[upAxis] : AXIS_VECTORS[upAxis];
-		MVector crossVector = (forwardVector ^ upVector).normal();
+		MMatrix aimMatrix;
 
-		MMatrix aimMatrix = createMatrix(forwardVector, upVector, crossVector, MPoint::origin);
+		status = createAimMatrix(forwardAxis, forwardAxisFlip, upAxis, upAxisFlip, aimMatrix);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Re-orient matrices
 		//
 		unsigned int numMatrices = matrices.length();
-		MMatrixArray newMatrices = MMatrixArray(numMatrices);
-		
+
 		for (unsigned int i = 0; i < numMatrices; i++)
 		{
 
-			newMatrices[i] = aimMatrix * matrices[i];
+			matrices[i] = aimMatrix * matrices[i];
 
 		}
 
-		return newMatrices;
+		return MS::kSuccess;
 
 	};
 

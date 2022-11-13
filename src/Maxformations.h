@@ -34,8 +34,6 @@
 namespace Maxformations
 {
 
-	static MVector AXIS_VECTORS[3] = { MVector::xAxis, MVector::yAxis, MVector::zAxis };
-
 	enum class AxisOrder
 	{
 
@@ -89,6 +87,10 @@ namespace Maxformations
 	MMatrix			createRotationMatrix(const MVector& radians, const AxisOrder axisOrder);
 	MMatrix			createRotationMatrix(const MMatrix& matrix);
 
+	MVector			getAxisVector(const int axis, const bool flip);
+	MStatus			createAimMatrix(const MVector& forwardVector, const int forwardAxis, const MVector& upVector, const int upAxis, const MPoint& origin, MMatrix& matrix);
+	MStatus			createAimMatrix(const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip, MMatrix& matrix);
+
 	MMatrix			createScaleMatrix(const double x, const double y, const double z);
 	MMatrix			createScaleMatrix(const MVector& scale);
 	MMatrix			createScaleMatrix(const MMatrix& matrix);
@@ -97,7 +99,7 @@ namespace Maxformations
 	MMatrix			createMatrix(const MVector& xAxis, const MVector& yAxis, const MVector& zAxis, const MPoint& position);
 	MMatrix			normalizeMatrix(const MMatrix& matrix);
 	MMatrixArray	staggerMatrices(const MMatrixArray& matrices);
-	MMatrixArray	reorientMatrices(const MMatrixArray& matrices, int forwardAxis, bool forwardAxisFlip, int upAxis, bool upAxisFlip);
+	MStatus			reorientMatrices(MMatrixArray& matrices, const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip);
 	
 	MVector			matrixToPosition(const MMatrix& matrix);
 
