@@ -163,7 +163,7 @@ Use this function to define any static attributes.
 
 	// Define default matrix value
 	//
-	Matrix3Controller::IDENTITY_MATRIX_DATA = Maxformations::createMatrixData(MMatrix::identity);
+	Matrix3Controller::IDENTITY_MATRIX_DATA = Maxformations::createMatrixData(MTransformationMatrix::identity);
 
 	// ".value" attribute
 	//
