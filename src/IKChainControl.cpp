@@ -151,9 +151,9 @@ Only these values should be used when performing computations!
 
 			// Get ik system settings
 			//
-			int forwardAxis = forwardAxisHandle.asInt();
+			int forwardAxis = forwardAxisHandle.asShort();
 			bool forwardAxisFlip = forwardAxisFlipHandle.asBool();
-			int upAxis = upAxisHandle.asInt();
+			int upAxis = upAxisHandle.asShort();
 			bool upAxisFlip = upAxisFlipHandle.asBool();
 			MAngle swivelAngle = swivelAngleHandle.asAngle();
 
@@ -178,15 +178,17 @@ Only these values should be used when performing computations!
 
 			// Solve ik system
 			//
-			MMatrixArray matrices = IKChainControl::solve(ikGoal, vhTarget, swivelAngle, joints);
+			MMatrixArray worldMatrices = IKChainControl::solve(ikGoal, vhTarget, swivelAngle, joints);
 
 			if ((forwardAxis != 0 || !forwardAxisFlip) || upAxis != 1 || !upAxisFlip)
 			{
 
-				matrices = Maxformations::reorientMatrices(matrices, forwardAxis, forwardAxisFlip, upAxis, upAxisFlip);
+				status = Maxformations::reorientMatrices(worldMatrices, forwardAxis, forwardAxisFlip, upAxis, upAxisFlip);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			}
 
+			MMatrixArray matrices = Maxformations::staggerMatrices(worldMatrices);
 			matrices[0] *= jointParentMatrix.inverse();  // Convert solution back to parent space!
 
 			// Update output handles
@@ -331,34 +333,34 @@ Returns the best VH target that could be used for the supplied joint matrices.
 	switch (numJoints)
 	{
 
-	case 0:
-	{
+		case 0:
+		{
 
-		return MMatrix::identity;
+			return MMatrix::identity;
 
-	}
+		}
 		
-	case 1:
-	{
+		case 1:
+		{
 
-		MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
-		return Maxformations::createPositionMatrix(upVector);
+			MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
+			return Maxformations::createPositionMatrix(upVector);
 
-	}
+		}
 
-	default:
-	{
+		default:
+		{
 
-		MVector startPoint = Maxformations::matrixToPosition(joints[0].matrix);
-		MVector endPoint = Maxformations::matrixToPosition(joints[numJoints - 1].matrix);
+			MVector startPoint = Maxformations::matrixToPosition(joints[0].matrix);
+			MVector endPoint = Maxformations::matrixToPosition(joints[numJoints - 1].matrix);
 		
-		MVector forwardVector = (endPoint - startPoint).normal();
-		MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
-		MVector rightVector = (forwardVector ^ upVector).normal();
+			MVector forwardVector = (endPoint - startPoint).normal();
+			MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
+			MVector rightVector = (forwardVector ^ upVector).normal();
 
-		return Maxformations::createPositionMatrix((rightVector ^ forwardVector).normal());
+			return Maxformations::createPositionMatrix((rightVector ^ forwardVector).normal());
 
-	}
+		}
 
 	}
 
@@ -383,20 +385,20 @@ The solution uses the default forward-x and up-y axixes!
 	switch (numItems)
 	{
 
-	case 0:
-		return MMatrixArray();
+		case 0:
+			return MMatrixArray();
 
-	case 1:
-		return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, joints[0], 0.0);
+		case 1:
+			return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, joints[0], 0.0);
 
-	case 2:
-		return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, joints[0], joints[1]);
+		case 2:
+			return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, joints[0], joints[1]);
 
-	case 3:
-		return IKChainControl::solve2Bone(ikGoal, vhTarget, swivelAngle, joints[0], joints[1], joints[2]);
+		case 3:
+			return IKChainControl::solve2Bone(ikGoal, vhTarget, swivelAngle, joints[0], joints[1], joints[2]);
 
-	default:
-		return IKChainControl::solveNBone(ikGoal, vhTarget, swivelAngle, joints);
+		default:
+			return IKChainControl::solveNBone(ikGoal, vhTarget, swivelAngle, joints);
 
 	}
 
@@ -434,8 +436,8 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	// Calculate axis vectors
 	//
 	MVector xAxis = forwardVector;
-	MVector zAxis = (upVector ^ xAxis).normal();
-	MVector yAxis = (xAxis ^ zAxis).normal();
+	MVector zAxis = (xAxis ^ upVector).normal();
+	MVector yAxis = (zAxis ^ xAxis).normal();
 
 	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
 	MMatrix aimMatrix = swivelMatrix * Maxformations::createMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
@@ -446,7 +448,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	matrices[0] = aimMatrix;
 	matrices[1] = Maxformations::createPositionMatrix(length, 0.0, 0.0) * aimMatrix;
 
-	return Maxformations::staggerMatrices(matrices);
+	return matrices;
 
 };
 
@@ -500,16 +502,15 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	double startLength = midPoint.length();
 	double endLength = endPoint.length();
 
-	double maxLength = startLength + endLength;
+	double maxDistance = startLength + endLength;
 
 	// Calculate aim vector
 	//
 	MVector goalPoint = Maxformations::matrixToPosition(ikGoal);
 	MVector aimVector = goalPoint - startPoint;
-	MVector normalizedAimVector = aimVector.normal();
+	MVector forwardVector = aimVector.normal();
 
 	double distance = aimVector.length();
-	double clampedDistance = (distance >= maxLength) ? maxLength : distance;
 
 	// Calculate up vector
 	//
@@ -518,14 +519,23 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 
 	// Calculate angles using law of cosines
 	//
-	double startRadian = acos((pow(startLength, 2.0) + pow(clampedDistance, 2.0) - pow(endLength, 2.0)) / (2.0 * startLength * clampedDistance));
-	double endRadian = acos((pow(endLength, 2.0) + pow(startLength, 2.0) - pow(clampedDistance, 2.0)) / (2.0 * endLength * startLength));
+	double startRadian = 0.0;
+	double endRadian = M_PI;
+
+	if (distance < (maxDistance - 1e-3))
+	{
+
+		startRadian = acos((pow(startLength, 2.0) + pow(distance, 2.0) - pow(endLength, 2.0)) / (2.0 * startLength * distance));
+		endRadian = acos((pow(endLength, 2.0) + pow(startLength, 2.0) - pow(distance, 2.0)) / (2.0 * endLength * startLength));
+
+	}
 
 	// Calculate twist matrix
+	// Default orientation is: x = forward, y = up and z = right
 	//
-	MVector xAxis = normalizedAimVector;
-	MVector zAxis = (upVector ^ normalizedAimVector).normal();
-	MVector yAxis = (xAxis ^ zAxis).normal();
+	MVector xAxis = forwardVector;
+	MVector zAxis = (xAxis ^ upVector).normal();
+	MVector yAxis = (zAxis ^ xAxis).normal();
 
 	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
 	MMatrix twistMatrix = swivelMatrix * Maxformations::createMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
@@ -543,7 +553,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	matrices[1] = midMatrix;
 	matrices[2] = endMatrix;
 
-	return Maxformations::staggerMatrices(matrices);
+	return matrices;
 
 };
 
@@ -562,17 +572,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 */
 {
 
-	unsigned int numElements = joints.size();
-	MMatrixArray matrices = MMatrixArray(numElements);
-
-	for (unsigned int i = 0; i < numElements; i++)
-	{
-
-		matrices[i] = joints[i].matrix;  // TODO: Copying matrices for now but need to implement n-bone solution!!!
-
-	}
-
-	return matrices;
+	return MMatrixArray(joints.size());
 
 };
 
@@ -696,8 +696,13 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 		// Cleanup reference to prs
 		//
-		this->prs->deregisterMasterController();
-		this->prs = nullptr;
+		if (this->prs != nullptr)
+		{
+
+			this->prs->deregisterMasterController();
+			this->prs = nullptr;
+
+		}
 
 	}
 	
@@ -765,8 +770,6 @@ Use this function to define any static attributes.
 	//
 	IKChainControl::ikGoal = fnTypedAttr.create("ikGoal", "ikg", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(&status));
 
 	// ".ikParentMatrix" attribute
 	//
