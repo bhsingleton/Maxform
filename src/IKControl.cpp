@@ -16,11 +16,10 @@ MObject	IKControl::preferredRotationY;
 MObject	IKControl::preferredRotationZ;
 
 MString	IKControl::inputCategory("Input");
-
 MTypeId	IKControl::id(0x0013b1d0);
 
 
-IKControl::IKControl() : Matrix3Controller() { this->prs = nullptr; };
+IKControl::IKControl() : Matrix3Controller() { this->ikEnabled = false; this->prs = nullptr; };
 IKControl::~IKControl() { this->prs = nullptr; };
 
 
@@ -226,8 +225,13 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 		// Cleanup reference to prs
 		//
-		this->prs->deregisterMasterController();
-		this->prs = nullptr;
+		if (this->prs != nullptr)
+		{
+
+			this->prs->deregisterMasterController();
+			this->prs = nullptr;
+
+		}
 
 	}
 	else if (plug == IKControl::ikSubControl && !asSrc)
@@ -301,15 +305,11 @@ Use this function to define any static attributes.
 	IKControl::ikSubControl = fnTypedAttr.create("ikSubControl", "iksc", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(&status));
-
 	// ".fkSubControl" attribute
 	//
 	IKControl::fkSubControl = fnTypedAttr.create("fkSubControl", "fksc", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
-	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(&status));
-
 	// ".preferredRotationX" attribute
 	//
 	IKControl::preferredRotationX = fnUnitAttr.create("preferredRotationX", "prx", MFnUnitAttribute::kAngle, 0.0, &status);
@@ -356,7 +356,6 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::ikSubControl, IKControl::value));
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::fkSubControl, IKControl::value));
-	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::preferredRotation, IKControl::value));
 
 	return status;
 
