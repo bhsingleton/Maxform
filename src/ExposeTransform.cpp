@@ -46,6 +46,9 @@ MString		ExposeTransform::classification("drawdb/geometry/transform/exposeTm");
 
 
 ExposeTransform::ExposeTransform()
+/**
+Constructor.
+*/
 {
 
 	this->exposeHandle = MObjectHandle();
@@ -281,7 +284,7 @@ Only these values should be used when performing computations!
 	else
 	{
 
-		return MS::kUnknownParameter;
+		return Maxform::compute(plug, data);
 
 	}
 
@@ -316,7 +319,7 @@ Another use for this method is to impose attribute limits.
 
 	}
 
-	return MPxNode::setInternalValue(plug, handle);;
+	return Maxform::setInternalValue(plug, handle);
 
 };
 
@@ -357,7 +360,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	else
 	{
 
-		return MS::kUnknownParameter;
+		return Maxform::legalConnection(plug, otherPlug, asSrc, isLegal);
 
 	}
 
@@ -395,8 +398,6 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		this->updateExposeMatrix();
 		this->updateLocalReferenceMatrix();
 
-		return MS::kSuccess;
-
 	}
 	else if (attribute == ExposeTransform::localReferenceNode && !asSrc)
 	{
@@ -409,15 +410,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		this->localReferenceHandle = MObjectHandle(otherNode);
 		this->updateLocalReferenceMatrix();
 
-		return MS::kSuccess;
-
 	}
-	else
-	{
+	else;
 
-		return MS::kUnknownParameter;
-
-	}
+	return Maxform::connectionMade(plug, otherPlug, asSrc);
 
 };
 
@@ -450,8 +446,6 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		this->updateExposeMatrix();
 		this->updateLocalReferenceMatrix();
 
-		return MS::kSuccess;
-
 	}
 	else if (attribute == ExposeTransform::localReferenceNode && !asSrc)
 	{
@@ -461,20 +455,21 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		this->localReferenceHandle = MObjectHandle();
 		this->updateLocalReferenceMatrix();
 
-		return MS::kSuccess;
-
 	}
-	else
-	{
-
-		return MS::kUnknownParameter;
-
-	}
+	else;
+	
+	return Maxform::connectionBroken(plug, otherPlug, asSrc);
 
 };
 
 
 MStatus ExposeTransform::updateExposeMatrix()
+/**
+Ensures that the correct attributes are connected to the `exposeMatrix` attribute.
+This function is only called when the `exposeNode` attribute is connected!
+
+@return: Return status.
+*/
 {
 
 	MStatus status;
@@ -537,6 +532,12 @@ MStatus ExposeTransform::updateExposeMatrix()
 
 
 MStatus ExposeTransform::updateLocalReferenceMatrix()
+/**
+Ensures that the correct attributes are connected to the `localReferenceMatrix` attribute.
+This function is only called when the `localReferenceNode` attribute is connected!
+
+@return: Return status.
+*/
 {
 
 	MStatus status;
