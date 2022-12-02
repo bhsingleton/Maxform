@@ -125,7 +125,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		MFnDependencyNode fnDependNode(otherNode, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = fnDependNode.typeId() == PRS::id;
+		MTypeId typeId = fnDependNode.typeId(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		isLegal = (typeId == PRS::id);
 
 		return MS::kSuccess;
 
@@ -141,7 +144,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		MFnDependencyNode fnDependNode(otherNode, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = fnDependNode.typeId() == IKChainControl::id;
+		MTypeId typeId = fnDependNode.typeId(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		isLegal = (typeId == IKChainControl::id || typeId == SplineIKChainControl::id);
 
 		return MS::kSuccess;
 
@@ -172,7 +178,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == IKControl::fkSubControl && !asSrc) && otherPlug == PRS::value)
+	if (plug == IKControl::fkSubControl && !asSrc)
 	{
 
 		// Store reference to prs
@@ -189,7 +195,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		this->prs->registerMasterController(this);
 
 	}
-	else if ((plug == IKControl::ikSubControl && !asSrc) && otherPlug == IKChainControl::goal)
+	else if (plug == IKControl::ikSubControl && !asSrc)
 	{
 
 		// Indicate ik is now enabled
@@ -220,7 +226,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == IKControl::fkSubControl && !asSrc) && otherPlug == PRS::value)
+	if (plug == IKControl::fkSubControl && !asSrc)
 	{
 
 		// Cleanup reference to prs
@@ -356,6 +362,7 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::ikSubControl, IKControl::value));
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::fkSubControl, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::preferredRotation, IKControl::value));
 
 	return status;
 

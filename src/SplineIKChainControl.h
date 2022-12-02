@@ -1,9 +1,9 @@
-#ifndef _IK_CHAIN_CONTROL_NODE
-#define _IK_CHAIN_CONTROL_NODE
+#ifndef _SPLINE_IK_CHAIN_CONTROL_NODE
+#define _SPLINE_IK_CHAIN_CONTROL_NODE
 //
-// File: IKChainControl.h
+// File: SplineIKChainControl.h
 //
-// Dependency Graph Node: ikChainControl
+// Dependency Graph Node: splineIKChainControl
 //
 // Author: Benjamin H. Singleton
 //
@@ -20,6 +20,7 @@
 #include <maya/MDataHandle.h>
 #include <maya/MArrayDataHandle.h>
 #include <maya/MArrayDataBuilder.h>
+#include <maya/MFnNurbsCurve.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnUnitAttribute.h>
@@ -37,28 +38,28 @@
 
 
 class IKControl;  // Forward declaration for evaluating legal connections!
-class IKControlSpec;  // Forward declaration for storing joint data!
+struct IKControlSpec;  // Forward declaration for storing joint data!
 
 
-class IKChainControl : public Matrix3Controller
+class SplineIKChainControl : public Matrix3Controller
 {
 
 public:
 
-									IKChainControl();
-	virtual							~IKChainControl();
+									SplineIKChainControl();
+	virtual							~SplineIKChainControl();
 
 	virtual MStatus					compute(const MPlug& plug, MDataBlock& data);
 	
 	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle);
-	static	MVector						getUpVector(const MMatrix& startJoint, const MMatrix& vhTarget);
-	static	MVector						guessUpVector(const std::vector<IKControlSpec>& joints, const int upAxis, const bool upAxisFlip);
+	static	MVector						getUpVector(const MObject& splineShape, const MMatrix& upNode, MStatus* status);
 
-	static	MMatrixArray			solve(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints);
-	static	MMatrixArray			solve1Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const double length);
-	static	MMatrixArray			solve1Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const IKControlSpec& endJoint);
-	static	MMatrixArray			solve2Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const IKControlSpec& midJoint, const IKControlSpec& endJoint);
-	static	MMatrixArray			solveNBone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints);
+	virtual	MStatus					solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices);
+	virtual	MStatus					refineSolution(const MObject& splineShape, const MPoint& origin, const double boneLength, MPoint& point, double& curveLength);
+	virtual	MDoubleArray			getBoneLengths(const std::vector<IKControlSpec>& joints);
+	virtual	MStatus					adjustPointsByLength(const MPointArray& points, const MDoubleArray& lengths, MPointArray& adjustedPoints);
+
+	virtual	bool					setInternalValue(const MPlug& plug, const MDataHandle& handle);
 
 	virtual	MStatus					legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
 	virtual	MStatus					connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
@@ -88,19 +89,26 @@ public:
 	static	MObject					jointOffsetRotationZ;
 	static	MObject					jointMatrix;
 	static	MObject					jointParentMatrix;
-	static	MObject					swivelAngle;
-	static	MObject					useVHTarget;
-	static	MObject					vhTarget;  // Stands for (v)ector (h)andle target!
+	static	MObject					splineShape;
+	static	MObject					startTwistAngle;
+	static	MObject					endTwistAngle;
+	static	MObject					upNode;
+	static	MObject					useUpNode;
+	static	MObject					iterations;  // Controls the maximum number of iterations for each solution
+	static	MObject					tolerance;  // Controls the margin of error allowed for each solution
 
 	static	MObject					goal;
 
 	static	MString					inputCategory;
 	static	MString					goalCategory;
+
 	static	MTypeId					id;
 
 protected:
-
+			
 			PRS*					prs;
+			float					toleranceValue;
+			int						iterationLimit;
 
 };
 

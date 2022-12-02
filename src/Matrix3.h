@@ -19,16 +19,6 @@
 #include <math.h>
 
 
-enum class MatrixStatus
-{
-
-	Passive = 0,
-	Overriden = 1,
-	Exporting = 2
-
-};
-
-
 class Matrix3 : public MPxTransformationMatrix
 {
 	
@@ -38,6 +28,10 @@ public:
 	virtual								~Matrix3();
 	
 	static	MPxTransformationMatrix*	creator();
+
+	virtual	MPxTransformationMatrix&	operator=(const MPxTransformationMatrix& src);
+	virtual	MPxTransformationMatrix&	operator=(const MMatrix& src);
+	virtual	MPxTransformationMatrix&	operator=(const MTransformationMatrix& src);
 
 	virtual	MQuaternion					preRotation() const override;
 	virtual	MMatrix						asMatrix() const override;

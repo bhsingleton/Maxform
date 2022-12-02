@@ -29,6 +29,7 @@
 #include <maya/MPlugArray.h>
 #include <maya/MDGModifier.h>
 #include <maya/MFileIO.h>
+#include <maya/MGlobal.h>
 
 
 namespace Maxformations
@@ -79,6 +80,21 @@ namespace Maxformations
 
 	};
 
+	template<class N> bool isClose(const N value, const N otherValue, const double tolerance)
+	/**
+	Evaluates if the two supplied values are relatively close.
+
+	@param value: The first number.
+	@param otherValue: The second number.
+	@param tolerance: The max difference between the two numbers that can be considered.
+	@return: Yes or no.
+	*/
+	{
+
+		return abs(value - otherValue) <= tolerance;
+
+	};
+
 	MMatrix			createPositionMatrix(const double x, const double y, const double z);
 	MMatrix			createPositionMatrix(const MVector& position);
 	MMatrix			createPositionMatrix(const MMatrix& matrix);
@@ -86,10 +102,11 @@ namespace Maxformations
 	MMatrix			createRotationMatrix(const double x, const double y, const double z, const AxisOrder axisOrder);
 	MMatrix			createRotationMatrix(const MVector& radians, const AxisOrder axisOrder);
 	MMatrix			createRotationMatrix(const MMatrix& matrix);
-
+	
 	MVector			getAxisVector(const int axis, const bool flip);
 	MStatus			createAimMatrix(const MVector& forwardVector, const int forwardAxis, const MVector& upVector, const int upAxis, const MPoint& origin, MMatrix& matrix);
 	MStatus			createAimMatrix(const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip, MMatrix& matrix);
+	MStatus			createAimMatrix(const MPointArray& points, const int forwardAxis, const bool forwardAxisFlip, const MVector& upVector, const int upAxis, const bool upAxisFlip, MMatrixArray& matrices);
 
 	MMatrix			createScaleMatrix(const double x, const double y, const double z);
 	MMatrix			createScaleMatrix(const MVector& scale);
@@ -99,8 +116,9 @@ namespace Maxformations
 	MMatrix			createMatrix(const MVector& xAxis, const MVector& yAxis, const MVector& zAxis, const MPoint& position);
 	MMatrix			normalizeMatrix(const MMatrix& matrix);
 	MMatrixArray	staggerMatrices(const MMatrixArray& matrices);
+	MStatus			twistMatrices(MMatrixArray& matrices, const int forwardAxis, const MAngle& startTwistAngle, const MAngle& endTwistAngle);
 	MStatus			reorientMatrices(MMatrixArray& matrices, const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip);
-	
+
 	MVector			matrixToPosition(const MMatrix& matrix);
 
 	MEulerRotation::RotationOrder	axisToRotationOrder(const AxisOrder axisOrder);
@@ -147,8 +165,8 @@ namespace Maxformations
 	MStatus			transferConnections(const MPlug& plug, const MPlug& otherPlug);
 	MStatus			transferValues(MPlug& plug, MPlug& otherPlug);
 
-	bool			hasTypeId(const MObject& node, const MTypeId& id, MStatus* status);
 	bool			isSceneLoading();
+	MVector			getSceneUpVector();
 
 };
 #endif

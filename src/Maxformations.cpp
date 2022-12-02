@@ -159,10 +159,14 @@ namespace Maxformations
 	*/
 	{
 
+		MVector xAxis = MVector(matrix[0]).normal();
+		MVector yAxis = MVector(matrix[1]).normal();
+		MVector zAxis = MVector(matrix[2]).normal();
+
 		double rows[4][4] = {
-			{ matrix(0, 0), matrix(0, 1), matrix(0, 2), 0.0 },
-			{ matrix(1, 0), matrix(1, 1), matrix(1, 2), 0.0 },
-			{ matrix(2, 0), matrix(2, 1), matrix(2, 2), 0.0 },
+			{ xAxis.x, xAxis.y, xAxis.z, 0.0 },
+			{ yAxis.x, yAxis.y, yAxis.z, 0.0 },
+			{ zAxis.x, zAxis.y, zAxis.z, 0.0 },
 			{ 0.0, 0.0, 0.0, 1.0 },
 		};
 
@@ -343,6 +347,73 @@ namespace Maxformations
 
 	};
 
+	MStatus createAimMatrix(const MPointArray& points, const int forwardAxis, const bool forwardAxisFlip, const MVector& upVector, const int upAxis, const bool upAxisFlip, MMatrixArray& matrices)
+	/**
+	Creates an aim matrix from the supplied parameters.
+	Both of the supplied axes must be unique and none of the points should be overlapping!
+
+	@param points: The array of consecutive points.
+	@param forwardAxis: The forward axis.
+	@param forwardAxisFlip: Determines if the forward axis is inversed.
+	@param upVector: The starting up vector.
+	@param upAxis: The up axis.
+	@param upAxisFlip: Determines if the up axis is inversed.
+	@param matrices: The passed matrix array to populate.
+	@return: Return status.
+	*/
+	{
+
+		MStatus status;
+
+		// Resize passed matrix array
+		//
+		unsigned int numPoints = points.length();
+
+		status = matrices.setLength(numPoints);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Iterate through points
+		//
+		const unsigned int lastIndex = numPoints - 1;
+		double forwardSign = forwardAxisFlip ? -1.0 : 1.0;
+		double upSign = upAxisFlip ? -1.0 : 1.0;
+
+		MVector forwardVector, nextUpVector;
+
+		for (unsigned int i = 0; i < numPoints; i++)
+		{
+
+			if (i == 0)
+			{
+
+				forwardVector = (points[i + 1] - points[i]).normal() * forwardSign;
+				nextUpVector = upVector * upSign;
+
+			}
+			else if (i == lastIndex)
+			{
+
+				forwardVector = (points[i] - points[i - 1]).normal() * forwardSign;
+				nextUpVector = MVector(matrices[i - 1][upAxis]);
+
+			}
+			else
+			{
+
+				forwardVector = (points[i + 1] - points[i]).normal() * forwardSign;
+				nextUpVector = MVector(matrices[i - 1][upAxis]);
+
+			}
+
+			status = createAimMatrix(forwardVector, forwardAxis, nextUpVector, upAxis, points[i], matrices[i]);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		}
+		
+		return status;
+
+	};
+
 	MMatrix createScaleMatrix(const double x, const double y, const double z)
 	/**
 	Returns a scale matrix from the supplied XYZ values.
@@ -485,9 +556,58 @@ namespace Maxformations
 
 	};
 
+	MStatus twistMatrices(MMatrixArray& matrices, const int forwardAxis, const MAngle& startTwistAngle, const MAngle& endTwistAngle)
+	/**
+	Twists the passed matrices based on the specified start and end twist angles.
+
+	@param matrices: The matrices to twist.
+	@param forwardAxis: The forward axis.
+	@param startTwistAngle: The start twist angle.
+	@param endTwistAngle: The end twist angle.
+	@return: Return status.
+	*/
+	{
+
+		// Check if there are enough matrices
+		// Otherwise we'll encounter divide by zero errors!
+		//
+		unsigned int numMatrices = matrices.length();
+
+		if (numMatrices == 0 || !(0u <= forwardAxis < 3u))
+		{
+
+			return MS::kFailure;
+
+		}
+
+		// Iterate through matrices
+		//
+		double fraction = 1.0 / static_cast<double>(numMatrices - 1);
+
+		double weight, radian, accumulated = 0.0;
+		MEulerRotation eulerRotation;
+
+		for (unsigned int i = 0; i < numMatrices; i++)
+		{
+
+			weight = fraction * static_cast<double>(i);
+			radian = lerp(startTwistAngle.asRadians(), endTwistAngle.asRadians(), weight);
+
+			eulerRotation = MEulerRotation(0.0, 0.0, 0.0);
+			eulerRotation[forwardAxis] = radian + accumulated;
+
+			matrices[i] = eulerRotation.asMatrix() * matrices[i];
+			accumulated += radian;
+
+		}
+
+		return MS::kSuccess;
+
+	};
+
 	MStatus reorientMatrices(MMatrixArray& matrices, int forwardAxis, bool forwardAxisFlip, int upAxis, bool upAxisFlip)
 	/**
-	Returns an array of matrices that are re-oriented based on the supplied axis alignments.
+	Re-orients the passed matrices based on the supplied axis alignments.
 
 	@param matrices: The matrices to re-orient.
 	@param forwardAxis: The forward axis.
@@ -1883,27 +2003,6 @@ namespace Maxformations
 
 	};
 
-	bool hasTypeId(const MObject& node, const MTypeId& id, MStatus* status)
-	/**
-	Evaluates if the supplied node has the specified type ID.
-
-	@param node: The node to evaluate.
-	@param id: The type id to compare against.
-	@param status: Status code.
-	@return: Has type ID.
-	*/
-	{
-
-		MFnDependencyNode fnDependNode(node, status);
-		CHECK_MSTATUS_AND_RETURN_IT(*status);
-
-		MTypeId otherId = fnDependNode.typeId(status);
-		CHECK_MSTATUS_AND_RETURN_IT(*status);
-
-		return id == otherId;
-
-	};
-
 	bool isSceneLoading()
 	/**
 	Evaluates if a scene file is being loaded.
@@ -1913,6 +2012,23 @@ namespace Maxformations
 	{
 		
 		return MFileIO::isNewingFile() || MFileIO::isOpeningFile() || MFileIO::isImportingFile() || MFileIO::isReferencingFile();
+
+	};
+
+	MVector getSceneUpVector()
+	/**
+	Returns the current scene up vector.
+
+	@return: The up vector.
+	*/
+	{
+
+		MStatus status;
+
+		MVector upVector = MGlobal::upAxis(&status);
+		CHECK_MSTATUS_AND_RETURN(status, MVector::yAxis);
+
+		return upVector;
 
 	};
 

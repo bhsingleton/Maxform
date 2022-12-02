@@ -10,6 +10,7 @@
 #include "Matrix3Controller.h"
 #include "PRS.h"
 #include "IKChainControl.h"
+#include "SplineIKChainControl.h"
 #include "IKControl.h"
 #include "PositionList.h"
 #include "RotationList.h"
@@ -40,6 +41,9 @@ MStatus initializePlugin(MObject obj)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.registerNode("ikChainControl", IKChainControl::id, IKChainControl::creator, IKChainControl::initialize);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("splineIKChainControl", SplineIKChainControl::id, SplineIKChainControl::creator, SplineIKChainControl::initialize);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.registerNode("ikControl", IKControl::id, IKControl::creator, IKControl::initialize);
@@ -80,6 +84,9 @@ MStatus uninitializePlugin(MObject obj)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.deregisterNode(IKChainControl::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(SplineIKChainControl::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.deregisterNode(IKControl::id);

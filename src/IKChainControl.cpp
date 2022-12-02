@@ -20,6 +20,10 @@ MObject	IKChainControl::jointPreferredRotation;
 MObject	IKChainControl::jointPreferredRotationX;
 MObject	IKChainControl::jointPreferredRotationY;
 MObject	IKChainControl::jointPreferredRotationZ;
+MObject	IKChainControl::jointOffsetRotation;
+MObject	IKChainControl::jointOffsetRotationX;
+MObject	IKChainControl::jointOffsetRotationY;
+MObject	IKChainControl::jointOffsetRotationZ;
 MObject	IKChainControl::jointMatrix;
 MObject	IKChainControl::jointParentMatrix;
 MObject	IKChainControl::swivelAngle;
@@ -30,6 +34,7 @@ MObject	IKChainControl::goal;
 
 MString	IKChainControl::inputCategory("Input");
 MString	IKChainControl::goalCategory("Goal");
+
 MTypeId	IKChainControl::id(0x0013b1cf);
 
 
@@ -98,7 +103,7 @@ Only these values should be used when performing computations!
 		MArrayDataHandle jointArrayHandle = data.inputArrayValue(IKChainControl::joint, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		std::vector<JointItem> joints = IKChainControl::getJoints(jointArrayHandle);
+		std::vector<IKControlSpec> joints = IKChainControl::getJoints(jointArrayHandle);
 		unsigned int numJoints = static_cast<unsigned int>(joints.size());
 
 		if (enabled && numJoints > 0)
@@ -111,7 +116,7 @@ Only these values should be used when performing computations!
 
 			MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
 
-			joints[0].matrix *= jointParentMatrix;
+			joints[0].matrix *= jointParentMatrix;  // Without this the up-vector can't be calculated properly!
 
 			// Get input handles
 			//
@@ -160,25 +165,26 @@ Only these values should be used when performing computations!
 			// Get vector-handle target
 			//
 			bool useVHTarget = useVHTargetHandle.asBool();
-			MMatrix vhTarget = MMatrix::identity;
+			MMatrix vhTarget = Maxformations::getMatrixData(vhTargetHandle.data());
+
+			MVector upVector;
 
 			if (useVHTarget)
 			{
 
-				vhTarget = Maxformations::getMatrixData(vhTargetHandle.data());
-				CHECK_MSTATUS_AND_RETURN_IT(status);
+				upVector = IKChainControl::getUpVector(joints[0].matrix, vhTarget);
 
 			}
 			else
 			{
 
-				vhTarget = IKChainControl::guessVHTarget(joints, upAxis, upAxisFlip);
+				upVector = IKChainControl::guessUpVector(joints, upAxis, upAxisFlip);
 
 			}
 
 			// Solve ik system
 			//
-			MMatrixArray worldMatrices = IKChainControl::solve(ikGoal, vhTarget, swivelAngle, joints);
+			MMatrixArray worldMatrices = IKChainControl::solve(ikGoal, upVector, swivelAngle, joints);
 
 			if ((forwardAxis != 0 || !forwardAxisFlip) || upAxis != 1 || !upAxisFlip)
 			{
@@ -188,8 +194,18 @@ Only these values should be used when performing computations!
 
 			}
 
-			MMatrixArray matrices = Maxformations::staggerMatrices(worldMatrices);
-			matrices[0] *= jointParentMatrix.inverse();  // Convert solution back to parent space!
+			// Localize solution back into parent space
+			//
+			MMatrixArray matrices = MMatrixArray(numJoints);
+			MMatrix parentMatrix;
+
+			for (unsigned int i = 0; i < numJoints; i++)
+			{
+
+				parentMatrix = (i == 0) ? jointParentMatrix : worldMatrices[i - 1];
+				matrices[i] = (joints[i].offsetRotation.asMatrix() * worldMatrices[i]) * parentMatrix.inverse();
+
+			}
 
 			// Update output handles
 			//
@@ -274,9 +290,9 @@ Only these values should be used when performing computations!
 };
 
 
-std::vector<JointItem> IKChainControl::getJoints(MArrayDataHandle& arrayHandle)
+std::vector<IKControlSpec> IKChainControl::getJoints(MArrayDataHandle& arrayHandle)
 /**
-Returns an array of joint items from the supplied array handle.
+Returns an array of ik-control specs from the supplied array handle.
 
 @param arrayHandle: The array data handle to extract from.
 @return: The joint values.
@@ -288,12 +304,14 @@ Returns an array of joint items from the supplied array handle.
 	// Presize joint array
 	//
 	unsigned int numElements = arrayHandle.elementCount();
-	std::vector<JointItem> joints = std::vector<JointItem>(numElements);
+	std::vector<IKControlSpec> joints = std::vector<IKControlSpec>(numElements);
 
 	// Iterate through elements
 	//
-	MDataHandle elementHandle, preferredRotationHandle, matrixHandle;
+	MDataHandle elementHandle, preferredRotationHandle, offsetRotationHandle, matrixHandle;
+	MEulerRotation preferredRotation, offsetRotation;
 	MMatrix matrix;
+	double length, distance = 0.0;
 
 	for (unsigned int i = 0; i < numElements; i++)
 	{
@@ -305,10 +323,17 @@ Returns an array of joint items from the supplied array handle.
 		CHECK_MSTATUS_AND_RETURN(status, joints);
 
 		preferredRotationHandle = elementHandle.child(IKChainControl::jointPreferredRotation);
-		matrixHandle = elementHandle.child(IKChainControl::jointMatrix);
+		preferredRotation = MEulerRotation(preferredRotationHandle.asDouble3());
 
-		joints[i] = JointItem{ MEulerRotation(preferredRotationHandle.asDouble3()), Maxformations::getMatrixData(matrixHandle.data()) };
-		CHECK_MSTATUS_AND_RETURN(status, joints);
+		offsetRotationHandle = elementHandle.child(IKChainControl::jointOffsetRotation);
+		offsetRotation = MEulerRotation(offsetRotationHandle.asDouble3());
+
+		matrixHandle = elementHandle.child(IKChainControl::jointMatrix);
+		matrix = Maxformations::getMatrixData(matrixHandle.data());
+		length = i > 0 ? Maxformations::matrixToPosition(matrix).length() : 0.0;
+		distance += length;
+
+		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, length, distance };
 
 	}
 
@@ -317,9 +342,41 @@ Returns an array of joint items from the supplied array handle.
 };
 
 
-MMatrix IKChainControl::guessVHTarget(const std::vector<JointItem>& joints, const int upAxis, const bool upAxisFlip)
+MVector IKChainControl::getUpVector(const MMatrix& startJoint, const MMatrix& vhTarget)
 /**
-Returns the best VH target that could be used for the supplied joint matrices.
+Returns the up-vector using the supplied ik-goal and vh-target.
+If the points are overlapping then the scene's up-vector is used instead.
+
+@param ikGoal: The ik-goal matrix.
+@param vhTarget: The vh-target matrix.
+@return: The up-vector.
+*/
+{
+
+	MVector startPoint = Maxformations::matrixToPosition(startJoint);
+	MVector vhPoint = Maxformations::matrixToPosition(vhTarget);
+
+	MVector upVector = (vhPoint - startPoint).normal();
+
+	if (upVector.length() > 0.0)
+	{
+
+		return upVector;
+
+	}
+	else
+	{
+
+		return Maxformations::getSceneUpVector();
+
+	}
+
+};
+
+
+MVector IKChainControl::guessUpVector(const std::vector<IKControlSpec>& joints, const int upAxis, const bool upAxisFlip)
+/**
+Returns the best up-vector that could be used from the supplied joint matrices.
 
 @param joint: The FK joint chain.
 @param upAxis: The up-axis for the joint chain.
@@ -336,44 +393,46 @@ Returns the best VH target that could be used for the supplied joint matrices.
 		case 0:
 		{
 
-			return MMatrix::identity;
+			return Maxformations::getSceneUpVector();
 
 		}
-		
+		break;
+
 		case 1:
 		{
 
-			MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
-			return Maxformations::createPositionMatrix(upVector);
+			return upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
 
 		}
+		break;
 
 		default:
 		{
 
 			MVector startPoint = Maxformations::matrixToPosition(joints[0].matrix);
 			MVector endPoint = Maxformations::matrixToPosition(joints[numJoints - 1].matrix);
-		
+
 			MVector forwardVector = (endPoint - startPoint).normal();
 			MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
 			MVector rightVector = (forwardVector ^ upVector).normal();
 
-			return Maxformations::createPositionMatrix((rightVector ^ forwardVector).normal());
+			return (rightVector ^ forwardVector).normal();
 
 		}
+		break;
 
 	}
 
 };
 
 
-MMatrixArray IKChainControl::solve(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const std::vector<JointItem>& joints)
+MMatrixArray IKChainControl::solve(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints)
 /**
 Returns a solution for the supplied joint matrices.
 The solution uses the default forward-x and up-y axixes!
 
-@param ikGoal: The IK goal in parent space.
-@param vhTarget: The pole matrix in ik-handle's parent space.
+@param ikGoal: The IK goal in world space.
+@param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
 @param joints: The joints in their respective parent spaces.
 @return: The joint matrices in their respective parent spaces.
@@ -385,36 +444,36 @@ The solution uses the default forward-x and up-y axixes!
 	switch (numItems)
 	{
 
-		case 0:
-			return MMatrixArray();
+	case 0:
+		return MMatrixArray();
 
-		case 1:
-			return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, joints[0], 0.0);
+	case 1:
+		return IKChainControl::solve1Bone(ikGoal, upVector, swivelAngle, joints[0], 0.0);
 
-		case 2:
-			return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, joints[0], joints[1]);
+	case 2:
+		return IKChainControl::solve1Bone(ikGoal, upVector, swivelAngle, joints[0], joints[1]);
 
-		case 3:
-			return IKChainControl::solve2Bone(ikGoal, vhTarget, swivelAngle, joints[0], joints[1], joints[2]);
+	case 3:
+		return IKChainControl::solve2Bone(ikGoal, upVector, swivelAngle, joints[0], joints[1], joints[2]);
 
-		default:
-			return IKChainControl::solveNBone(ikGoal, vhTarget, swivelAngle, joints);
+	default:
+		return IKChainControl::solveNBone(ikGoal, upVector, swivelAngle, joints);
 
 	}
 
 };
 
 
-MMatrixArray IKChainControl::solve1Bone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const JointItem& startJoint, const double length)
+MMatrixArray IKChainControl::solve1Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const double length)
 /**
 Solves a 1-bone system using aim-vector math.
 All matrices are in the transform space of the previous joint.
 The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
 
-@param ikGoal: The IK goal in parent space.
-@param vhTarget: The pole matrix in ik-handle's parent space.
+@param ikGoal: The IK goal in world space.
+@param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
-@param startJoint: The start joint in parent space.
+@param startJoint: The start joint in world space.
 @param endJoint: The end joint in parent space.
 @return: The joint matrices in their respective parent spaces.
 */
@@ -427,11 +486,6 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 
 	MVector aimVector = goalPoint - startPoint;
 	MVector forwardVector = aimVector.normal();
-
-	// Calculate up vector
-	//
-	MVector vhPoint = Maxformations::matrixToPosition(vhTarget);
-	MVector upVector = (vhPoint - startPoint).normal();
 
 	// Calculate axis vectors
 	//
@@ -453,28 +507,27 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 };
 
 
-MMatrixArray IKChainControl::solve1Bone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const JointItem& startJoint, const JointItem& endJoint)
+MMatrixArray IKChainControl::solve1Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const IKControlSpec& endJoint)
 /**
 Solves a 1-bone system using aim-vector math.
 All matrices are in the transform space of the previous joint.
 The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
 
-@param ikGoal: The IK goal in parent space.
-@param vhTarget: The pole matrix in ik-handle's parent space.
+@param ikGoal: The IK goal in world space.
+@param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
-@param startJoint: The start joint in parent space.
+@param startJoint: The start joint in world space.
 @param endJoint: The end joint in parent space.
 @return: The joint matrices in their respective parent spaces.
 */
 {
 
-	double length = Maxformations::matrixToPosition(endJoint.matrix).length();
-	return IKChainControl::solve1Bone(ikGoal, vhTarget, swivelAngle, startJoint, length);
+	return IKChainControl::solve1Bone(ikGoal, upVector, swivelAngle, startJoint, endJoint.length);
 
 };
 
 
-MMatrixArray IKChainControl::solve2Bone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const JointItem& startJoint, const JointItem& midJoint, const JointItem& endJoint)
+MMatrixArray IKChainControl::solve2Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const IKControlSpec& midJoint, const IKControlSpec& endJoint)
 /**
 Solves a 2-bone system using the law of cosines.
 See the following for details: https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html
@@ -482,40 +535,30 @@ All matrices are in the transform space of the previous joint.
 The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
 
 @param ikGoal: The IK goal in parent space.
-@param vhTarget: The pole matrix in ik-handle's parent space.
+@param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
-@param startJoint: The start joint in parent space.
+@param startJoint: The start joint in world space.
 @param midJoint: The mid joint in parent space.
 @param endJoint: The end joint in parent space.
 @return: The joint matrices in their respective parent spaces.
 */
 {
 
-	// Get limb points
+	// Calculate max limb length
 	//
-	MVector startPoint = Maxformations::matrixToPosition(startJoint.matrix);
-	MVector midPoint = Maxformations::matrixToPosition(midJoint.matrix);
-	MVector endPoint = Maxformations::matrixToPosition(endJoint.matrix);
-
-	// Calculate limb length
-	//
-	double startLength = midPoint.length();
-	double endLength = endPoint.length();
+	double startLength = midJoint.length;
+	double endLength = endJoint.length;
 
 	double maxDistance = startLength + endLength;
 
 	// Calculate aim vector
 	//
+	MVector origin = Maxformations::matrixToPosition(startJoint.matrix);
 	MVector goalPoint = Maxformations::matrixToPosition(ikGoal);
-	MVector aimVector = goalPoint - startPoint;
+	MVector aimVector = goalPoint - origin;
+
 	MVector forwardVector = aimVector.normal();
-
 	double distance = aimVector.length();
-
-	// Calculate up vector
-	//
-	MVector vhPoint = Maxformations::matrixToPosition(vhTarget);
-	MVector upVector = (vhPoint - startPoint).normal();
 
 	// Calculate angles using law of cosines
 	//
@@ -538,7 +581,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	MVector yAxis = (zAxis ^ xAxis).normal();
 
 	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
-	MMatrix twistMatrix = swivelMatrix * Maxformations::createMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
+	MMatrix twistMatrix = swivelMatrix * Maxformations::createMatrix(xAxis, yAxis, zAxis, MPoint(origin));
 
 	// Compose matrices
 	//
@@ -558,14 +601,14 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 };
 
 
-MMatrixArray IKChainControl::solveNBone(const MMatrix& ikGoal, const MMatrix& vhTarget, const MAngle& swivelAngle, const std::vector<JointItem>& joints)
+MMatrixArray IKChainControl::solveNBone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints)
 /**
 Solves an n-bone system using a weighted angular redistrution solution.
 All matrices are in the transform space of the previous joint.
 The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
 
 @param ikGoal: The IK goal in parent space.
-@param vhTarget: The pole matrix in ik-handle's parent space.
+@param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
 @param joints: The joints in their respective parent spaces.
 @return: The joint matrices in their respective parent spaces.
@@ -594,10 +637,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if (plug == IKChainControl::ikGoal && asSrc)
+	if ((plug == IKChainControl::ikGoal && asSrc) && otherPlug == PRS::value)
 	{
 
-		// Evaluate if other node is a transform
+		// Evaluate if other node is a `prs` node
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -605,7 +648,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		MFnDependencyNode fnDependNode(otherNode, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = fnDependNode.typeId() == PRS::id;
+		MTypeId typeId = fnDependNode.typeId(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		isLegal = (typeId == PRS::id);
 
 		return MS::kSuccess;
 
@@ -613,7 +659,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	else if ((plug == IKChainControl::jointMatrix || (plug == IKChainControl::jointPreferredRotationX || plug == IKChainControl::jointPreferredRotationY || plug == IKChainControl::jointPreferredRotationZ)) && asSrc)
 	{
 
-		// Evaluate if other node is a transform
+		// Evaluate if other node is a `ikControl` node
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -621,7 +667,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		MFnDependencyNode fnDependNode(otherNode, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = fnDependNode.typeId() == IKControl::id;
+		MTypeId typeId = fnDependNode.typeId(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		isLegal = (typeId == IKControl::id);
 
 		return MS::kSuccess;
 
@@ -824,6 +873,26 @@ Use this function to define any static attributes.
 	IKChainControl::jointPreferredRotation = fnNumericAttr.create("jointPreferredRotation", "jpr", IKChainControl::jointPreferredRotationX, IKChainControl::jointPreferredRotationY, IKChainControl::jointPreferredRotationZ, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	// ".jointOffsetRotationX" attribute
+	//
+	IKChainControl::jointOffsetRotationX = fnUnitAttr.create("jointOffsetRotationX", "jorx", MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// ".jointOffsetRotationY" attribute
+	//
+	IKChainControl::jointOffsetRotationY = fnUnitAttr.create("jointOffsetRotationY", "jory", MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// ".jointOffsetRotationZ" attribute
+	//
+	IKChainControl::jointOffsetRotationZ = fnUnitAttr.create("jointOffsetRotationZ", "jorz", MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// ".jointOffsetRotation" attribute
+	//
+	IKChainControl::jointOffsetRotation = fnNumericAttr.create("jointOffsetRotation", "jor", IKChainControl::jointOffsetRotationX, IKChainControl::jointOffsetRotationY, IKChainControl::jointOffsetRotationZ, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	// ".jointMatrix" attribute
 	//
 	IKChainControl::jointMatrix = fnTypedAttr.create("jointMatrix", "jm", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
@@ -835,6 +904,7 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnCompoundAttr.addChild(IKChainControl::jointPreferredRotation));
+	CHECK_MSTATUS(fnCompoundAttr.addChild(IKChainControl::jointOffsetRotation));
 	CHECK_MSTATUS(fnCompoundAttr.addChild(IKChainControl::jointMatrix));
 	CHECK_MSTATUS(fnCompoundAttr.setArray(true));
 	
@@ -895,11 +965,13 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::enabled, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::ikGoal, IKChainControl::goal));
+	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::ikParentMatrix, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::forwardAxis, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::forwardAxisFlip, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::upAxis, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::upAxisFlip, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::jointPreferredRotation, IKChainControl::goal));
+	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::jointOffsetRotation, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::jointMatrix, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::jointParentMatrix, IKChainControl::goal));
 	CHECK_MSTATUS(IKChainControl::attributeAffects(IKChainControl::swivelAngle, IKChainControl::goal));

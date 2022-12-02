@@ -40,6 +40,71 @@ The caller is responsible for deleting the memory created by this method.
 };
 
 
+MPxTransformationMatrix& Matrix3::operator=(const MPxTransformationMatrix& src)
+/**
+Assignment operator.
+
+@param src: User defined transformation matrix to be copied.
+@return: Self.
+*/
+{
+
+	this->translateTo(src.translation());
+	this->rotateTo(src.eulerRotation());
+	this->scaleTo(src.scale());
+
+	return *this;
+
+};
+
+
+MPxTransformationMatrix& Matrix3::operator=(const MMatrix& src)
+/**
+Assignment operator.
+In order to convert the MMatrix to a MPxTransformationMatrix, decomposeMatrix() will be called.
+
+@param src: The matrix to copy.
+@return: Self.
+*/
+{
+
+	MVector translation = Maxformations::matrixToPosition(src);
+	MEulerRotation eulerRotation = Maxformations::matrixToEulerRotation(src, this->rotationOrder());
+	MVector scale = Maxformations::matrixToScale(src);
+
+	this->translateTo(translation);
+	this->rotateTo(eulerRotation);
+	this->scaleTo(scale);
+
+	return *this;
+
+};
+
+
+MPxTransformationMatrix& Matrix3::operator=(const MTransformationMatrix& src)
+/**
+Assignment operator.
+
+@param src: Transformation matrix to be copied.
+@return: Self.
+*/
+{
+
+	MVector translation = src.getTranslation(MSpace::kTransform);
+	MEulerRotation eulerRotation = src.eulerRotation();
+
+	double3 scale;
+	MStatus status = src.getScale(scale, MSpace::kTransform);
+
+	this->translateTo(translation);
+	this->rotateTo(eulerRotation);
+	this->scaleTo(scale);
+
+	return *this;
+
+};
+
+
 MQuaternion Matrix3::preRotation() const
 /**
 Returns the rotate orientation for the transformation matrix as a quaternion.

@@ -19,6 +19,8 @@ set(
 	"PRS.h"
 	"IKChainControl.cpp"
 	"IKChainControl.h"
+	"SplineIKChainControl.cpp"
+	"SplineIKChainControl.h"
 	"IKControl.cpp"
 	"IKControl.h"
 	"PositionList.cpp"
