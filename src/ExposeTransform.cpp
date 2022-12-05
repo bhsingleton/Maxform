@@ -493,15 +493,25 @@ This function is only called when the `exposeNode` attribute is connected!
 	if (isExposeNodeValid)
 	{
 
-		// Get expose node's ".worldMatrix" plug
+		// Get dag path to expose node
 		//
 		MObject exposeNode = this->exposeHandle.object();
-		MDagPath dagPath = MDagPath::getAPathTo(exposeNode);
 
-		MFnDagNode fnDagNode(dagPath);
-		MPlug plug = fnDagNode.findPlug("worldMatrix", true);
+		MDagPath dagPath = MDagPath::getAPathTo(exposeNode, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		status = plug.selectAncestorLogicalIndex(dagPath.instanceNumber());
+		unsigned int instanceNumber = dagPath.instanceNumber(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Get expose node's ".worldMatrix" plug
+		//
+		MFnDagNode fnDagNode(dagPath, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MPlug plug = fnDagNode.findPlug("worldMatrix", true, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MPlug element = plug.elementByLogicalIndex(instanceNumber, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Get destination plug
@@ -510,7 +520,7 @@ This function is only called when the `exposeNode` attribute is connected!
 
 		// Connect plugs
 		//
-		status = Maxformations::connectPlugs(plug, otherPlug, true);
+		status = Maxformations::connectPlugs(element, otherPlug, true);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	}
