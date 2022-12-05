@@ -172,10 +172,8 @@ Only these values should be used when performing computations!
 			if (useUpNode)
 			{
 
-				MMatrix upNode = Maxformations::getMatrixData(upNodeHandle.data());
-
-				upVector = SplineIKChainControl::getUpVector(splineShape, upNode, &status);
-				CHECK_MSTATUS_AND_RETURN_IT(status);
+				MMatrix upMatrix = Maxformations::getMatrixData(upNodeHandle.data());
+				upVector = MVector(upMatrix[2]).normal();  // Max always uses the z axis!!!
 
 			}
 			else
@@ -344,33 +342,6 @@ Returns an array of ik-control specs from the supplied array handle.
 	}
 
 	return joints;
-
-};
-
-
-MVector SplineIKChainControl::getUpVector(const MObject& splineShape, const MMatrix& upNode, MStatus* status)
-/**
-Returns the up-vector using the position of the up-node in relation to the origin on the curve.
-
-@param splineShape: The curve to sample from.
-@param upNode: The up-matrix to pull the position from.
-@param status: Return status.
-@return: The up-vector.
-*/
-{
-
-	MFnNurbsCurve fnNurbsCurve(splineShape, status);
-	CHECK_MSTATUS_AND_RETURN(*status, MVector::zero);
-
-	MPoint origin;
-
-	*status = fnNurbsCurve.getPointAtParam(1e-3, origin);
-	CHECK_MSTATUS_AND_RETURN(*status, MVector::zero);
-
-	MPoint upPoint = MPoint(upNode[3]);
-	MVector upVector = (upPoint - origin).normal();
-
-	return upVector;
 
 };
 
@@ -952,7 +923,7 @@ Use this function to define any static attributes.
 
 	// ".upAxisFlip" attribute
 	//
-	SplineIKChainControl::upAxisFlip = fnNumericAttr.create("upAxisFlip", "uaf", MFnNumericData::kBoolean, false, &status);
+	SplineIKChainControl::upAxisFlip = fnNumericAttr.create("upAxisFlip", "uaf", MFnNumericData::kBoolean, true, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// ".jointPreferredRotationX" attribute

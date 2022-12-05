@@ -52,7 +52,6 @@ public:
 	virtual MStatus					compute(const MPlug& plug, MDataBlock& data);
 	
 	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle);
-	static	MVector						getUpVector(const MObject& splineShape, const MMatrix& upNode, MStatus* status);
 
 	virtual	MStatus					solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices);
 	virtual	MStatus					refineSolution(const MObject& splineShape, const MPoint& origin, const double boneLength, MPoint& point, double& curveLength);
