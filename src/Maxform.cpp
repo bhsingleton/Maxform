@@ -194,7 +194,15 @@ Provide node-specific setup info for the Cached Playback system.
 
 	// Update caching preference
 	//
-	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, false);
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
+
+	// Append attributes for monitoring
+	//
+	monitoredAttributes.append(Maxform::preRotate);
+	monitoredAttributes.append(Maxform::preRotateX);
+	monitoredAttributes.append(Maxform::preRotateY);
+	monitoredAttributes.append(Maxform::preRotateZ);
+	monitoredAttributes.append(Maxform::transform);
 
 };
 
