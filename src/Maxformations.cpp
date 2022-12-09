@@ -573,7 +573,7 @@ namespace Maxformations
 		//
 		unsigned int numMatrices = matrices.length();
 
-		if (numMatrices == 0 || !(0u <= forwardAxis < 3u))
+		if (numMatrices == 0 || !(0 <= forwardAxis < 3))
 		{
 
 			return MS::kFailure;
