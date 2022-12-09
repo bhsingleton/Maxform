@@ -42,7 +42,7 @@ MString	SplineIKChainControl::goalCategory("Goal");
 MTypeId	SplineIKChainControl::id(0x0013b1d3);
 
 
-SplineIKChainControl::SplineIKChainControl() : Matrix3Controller() { this->iterationLimit = 10; this->toleranceValue = 1e-2; this->prs = nullptr; };
+SplineIKChainControl::SplineIKChainControl() : Matrix3Controller() { this->iterationLimit = 10; this->toleranceValue = 1e-3; this->prs = nullptr; };
 SplineIKChainControl::~SplineIKChainControl() { this->prs = nullptr; };
 
 
@@ -346,6 +346,52 @@ Returns an array of ik-control specs from the supplied array handle.
 };
 
 
+MStatus SplineIKChainControl::getSolution(const MObject& splineShape, const std::vector<IKControlSpec>& joints, std::vector<SplineIKSolution>& solution)
+/**
+Returns the default solution for the passed spline using the supplied joints.
+
+@param splineShape: The curve to sample from.
+@param joints: The joints to use when determining the distance along the curve.
+@param solution: The passed array to populate.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Initialize function set
+	//
+	MFnNurbsCurve fnNurbsCurve(splineShape, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Iterate through joints
+	//
+	size_t numJoints = joints.size();
+	solution.resize(numJoints);
+
+	double param, distance;
+	MPoint point;
+
+	for (size_t i = 0; i < numJoints; i++)
+	{
+
+		distance = (i > 0) ? joints[i].distance : 1e-3;
+
+		param = fnNurbsCurve.findParamFromLength(distance, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = fnNurbsCurve.getPointAtParam(param, point);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		solution[i] = SplineIKSolution{ param, distance, joints[i].length, point };
+
+	}
+
+	return MS::kSuccess;
+
+};
+
+
 MStatus SplineIKChainControl::solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices)
 /**
 Returns a multi-pass solution for the supplied joint chain.
@@ -376,71 +422,21 @@ The solution uses the default forward-x and up-y axes!
 
 	}
 
-	// Get origin of curve
+	// Get base solution from spline and refine it
 	//
-	MFnNurbsCurve fnNurbsCurve(splineShape, &status);
+	std::vector<SplineIKSolution> solution = std::vector<SplineIKSolution>();
+
+	status = SplineIKChainControl::getSolution(splineShape, joints, solution);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MPoint origin;
-
-	status = fnNurbsCurve.getPointAtParam(1e-3, origin);
+	status = SplineIKChainControl::refineSolution(splineShape, this->iterationLimit, this->toleranceValue, solution);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Iterate through joints
-	//
-	MDoubleArray boneLengths = SplineIKChainControl::getBoneLengths(joints);
-	MPointArray points(numJoints, origin);
-
-	MPoint endPoint, refinedEndPoint;
-	MVector forwardVector;
-	double param, boneDistance, boneLength, traversed = 0.0;
-
-	for (unsigned int i = 1; i < numJoints; i++)
-	{
-
-		// Evaluate next solution
-		//
-		boneDistance = double(joints[i].distance);
-		boneLength = double(joints[i].length);
-
-		param = fnNurbsCurve.findParamFromLength(boneDistance, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		status = fnNurbsCurve.getPointAtParam(param, endPoint);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		// Check if solution can be refined further
-		//
-		status = this->refineSolution(splineShape, points[i - 1], boneLength, refinedEndPoint, boneDistance);
-
-		if (status == MS::kSuccess)
-		{
-
-			points[i] = refinedEndPoint;
-			continue;  // Assign solution and go to next joint
-
-		}
-		else if (status == MS::kNotFound)
-		{
-
-			points[i] = endPoint;
-			continue;  // Ignore solution and go to next joint
-
-		}
-		else
-		{
-			
-			return status;  // Exit function
-
-		}
-
-	}
 
 	// Build matrix array from points and up-vector
 	//
-	MPointArray adjustedPoints;
-	
-	status = SplineIKChainControl::adjustPointsByLength(points, boneLengths, adjustedPoints);
+	MPointArray points;
+
+	status = SplineIKChainControl::getSolutionPoints(solution, this->toleranceValue, points);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = Maxformations::createAimMatrix(points, 0, false, upVector, 1, false, matrices);
@@ -454,15 +450,14 @@ The solution uses the default forward-x and up-y axes!
 };
 
 
-MStatus SplineIKChainControl::refineSolution(const MObject& splineShape, const MPoint& origin, const double boneLength, MPoint& point, double& curveLength)
+MStatus SplineIKChainControl::refineSolution(const MObject& splineShape, const unsigned int iterationLimit, const double tolerance, std::vector<SplineIKSolution> solution)
 /**
 Finds the next look-at solution for the supplied curve and point of origin.
 
 @param splineShape: The curve to sample from.
-@param origin: The point of origin for the bone.
-@param boneLengt: The length of the bone to solve for.
-@param point: The passed point to populate.
-@param discurveLengthtance: The distance along the curve to the next point.
+@param iterationLimit: The maximum number of iterations per solution.
+@param tolerance: The maximum offset allowed for a potential solution.
+@param solution: The solution to refine.
 @return: Return status.
 */
 {
@@ -470,189 +465,181 @@ Finds the next look-at solution for the supplied curve and point of origin.
 	MStatus status;
 
 	// Initialize function set
-	// Check if traversed length is now out of range!
 	//
 	MFnNurbsCurve fnNurbsCurve(splineShape, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	double maxLength = fnNurbsCurve.length(1e-3, &status);
+	double maxDistance = fnNurbsCurve.length(1e-3, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (curveLength >= maxLength)
-	{
-
-		return MS::kNotFound;
-
-	}
-
-	// Begin iterating through potential solutions
-	// The iteration limit will keep us from looping infinitely
-	//
-	double param, distance, difference;
+	// Iterate through solutions
+	// 
+	size_t solutionCount = solution.size();
+	
+	MPoint origin, point;
+	double param, distance, boneLength, difference;
 	bool isClose;
 
-	for (int i = 0; i < this->iterationLimit; i++)
+	for (size_t i = 1; i < solutionCount; i++)
 	{
 
-		// Get next point on curve
+		// Begin iterating through potential solutions
+		// The iteration limit will keep us from looping infinitely
 		//
-		param = fnNurbsCurve.findParamFromLength(curveLength, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
+		origin = MPoint(solution[i - 1].point);
+		distance = double(solution[i].distance);
+		boneLength = double(solution[i].boneLength);
 
-		status = fnNurbsCurve.getPointAtParam(param, point);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		// Check if traversed length is out of range
-		// If so, then project the point off the end of the curve
-		//
-		if (curveLength > maxLength)
+		for (int j = 0; i < iterationLimit; i++)
 		{
 
-			MVector projection = (point - origin).normal();
-			point = origin + (projection * boneLength);
+			// Get next point on curve
+			//
+			param = fnNurbsCurve.findParamFromLength(distance, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			return MS::kSuccess;
+			status = fnNurbsCurve.getPointAtParam(param, point);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		}
+			// Check if traversed length is out of range
+			// If so, then project the point off the end of the curve
+			//
+			if (distance >= maxDistance)
+			{
 
-		// Evaluate distance to point in relation to bone length
-		//
-		distance = origin.distanceTo(point);
-		difference = abs(distance - boneLength);
+				return MS::kSuccess;
 
-		isClose = (difference <= this->toleranceValue);
+			}
 
-		if (isClose)
-		{
+			// Evaluate distance to point in relation to bone length
+			//
+			distance = origin.distanceTo(point);
+			difference = abs(distance - boneLength);
 
-			return MS::kSuccess;  // Exit loop, no need to increment any further!
+			isClose = (difference <= tolerance);
 
-		}
+			if (isClose)
+			{
 
-		// Add or subtract difference from length and try again
-		//
-		if (distance > boneLength)
-		{
+				solution[i].param = param;
+				solution[i].distance = distance;
+				solution[i].point = point;
+				break;
 
-			distance -= difference;
+			}
 
-		}
-		else
-		{
+			// Add or subtract difference from length and try again
+			//
+			if (distance > boneLength)
+			{
 
-			distance += difference;
+				distance -= difference;
+
+			}
+			else
+			{
+
+				distance += difference;
+
+			}
 
 		}
 
 	}
 
-	return MS::kNotFound;  // No solution found...
+	return MS::kSuccess;
 
 };
 
 
-MDoubleArray SplineIKChainControl::getBoneLengths(const std::vector<IKControlSpec>& joints)
+MStatus SplineIKChainControl::getSolutionPoints(const std::vector<SplineIKSolution>& solution, const double tolerance, MPointArray& points)
 /**
-Returns the bone lengths from the supplied joints.
+Returns the points from the supplied solution while accomodating for bone lengths.
 
-@param joints: The joints to sample from.
-@return: The bone lengths.
-*/
-{
-
-	// Check if there are enough joints
-	//
-	unsigned int numJoints = static_cast<unsigned int>(joints.size());
-
-	if (numJoints == 0)
-	{
-
-		return MDoubleArray();
-
-	}
-
-	// Iterate through joints
-	//
-	MDoubleArray lengths(numJoints - 1);
-
-	for (unsigned int i = 1; i < numJoints; i++)  // Skip first joint since it has no length!
-	{
-
-		lengths[i - 1] = joints[i].length;
-
-	}
-
-	return lengths;
-
-};
-
-
-MStatus SplineIKChainControl::adjustPointsByLength(const MPointArray& points, const MDoubleArray& lengths, MPointArray& adjustedPoints)
-/**
-Adjusts the supplied points by ensuring that the inbetween distances match the specified lengths.
-
-@param points: The points to adjust.
-@param lengths: The length between each set of points.
-@param adjustedPoints: The passed array to populate.
+@param solution: The solution to sample from.
+@param tolerance: The maximum offset allowed between points.
+@param points: The passed array to populate.
 @return: Return status.
 */
 {
 
 	MStatus status;
 
-	// Verify the ratio of points to lengths is correct
+	// Check if there are enough solutions for points
 	//
-	unsigned int numPoints = points.length();
-	unsigned int numLengths = lengths.length();
+	unsigned int numPoints = static_cast<unsigned int>(solution.size());
 
-	if (numLengths != (numPoints - 1))
+	if (numPoints < 2)
 	{
 
 		return MS::kFailure;
 
 	}
 
-	// Resize passed array to accomodate new points
+	// Allocate space for points
 	//
-	status = adjustedPoints.setLength(numPoints);
+	status = points.setLength(numPoints);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	adjustedPoints[0] = points[0];  // Copy origin
+	points[0] = solution[0].point;  // Copy origin
 
-	// Iterate through lengths
+	// Iterate through solutions
 	//
 	MVector aimVector, forwardVector;
-	double distance;
-	bool isZero;
+	MPoint adjustedPoint;
+	double distance, length;
+	bool isClose, isZero;
 
 	for (unsigned int i = 1; i < numPoints; i++)
 	{
 
 		// Check if aim vector is valid
 		//
-		aimVector = (points[i] - adjustedPoints[i - 1]);
+		aimVector = solution[i].point - solution[i - 1].point;
 		distance = aimVector.length();
+		length = solution[i].boneLength;
 
-		isZero = Maxformations::isClose(0.0, distance, 1e-3);
+		isClose = Maxformations::isClose(distance, length, tolerance);
 
-		if (!isZero)
+		if (isClose)
 		{
 
-			forwardVector = aimVector.normal();
-			adjustedPoints[i] = adjustedPoints[i - 1] + (forwardVector * lengths[i - 1]);
-
-		}
-		else if (i >= 2)
-		{
-
-			forwardVector = (adjustedPoints[i - 1] - adjustedPoints[i - 2]).normal();
-			adjustedPoints[i] = adjustedPoints[i - 1] + (forwardVector * lengths[i - 1]);
+			// No need to adjust any points
+			//
+			points[i] = solution[i].point;
 
 		}
 		else
 		{
 
-			return MS::kFailure;
+			// Check if distance is zero
+			//
+			isZero = Maxformations::isClose(0.0, distance, tolerance);
+
+			if (!isZero)
+			{
+
+				forwardVector = (solution[i].point - points[i - 1]).normal();
+				adjustedPoint = points[i - 1] + (forwardVector * length);
+
+				points[i] = adjustedPoint;  // Adjust aim vector by applying bone length
+
+			}
+			else if (i >= 2)
+			{
+
+				forwardVector = (points[i - 1] - points[i - 2]).normal();
+				adjustedPoint = points[i - 1] + (forwardVector * length);
+
+				points[i] = adjustedPoint;  // Reuse previous solution
+
+			}
+			else
+			{
+
+				return MS::kFailure;
+
+			}
 
 		}
 
@@ -1021,7 +1008,7 @@ Use this function to define any static attributes.
 
 	// ".iterations" attribute
 	//
-	SplineIKChainControl::tolerance = fnNumericAttr.create("tolerance", "t", MFnNumericData::kFloat, 1e-2, &status);
+	SplineIKChainControl::tolerance = fnNumericAttr.create("tolerance", "t", MFnNumericData::kFloat, 1e-3, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.setMin(0.0));

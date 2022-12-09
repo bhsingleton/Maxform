@@ -41,6 +41,17 @@ class IKControl;  // Forward declaration for evaluating legal connections!
 struct IKControlSpec;  // Forward declaration for storing joint data!
 
 
+struct SplineIKSolution
+{
+
+	double param = 0.0;  // Curve parameter of point
+	double distance = 0.0;  // Distance from the root of curve
+	double boneLength = 0.0;  // Length of this bone
+	MPoint point = MPoint::origin;  // Point on curve
+
+};
+
+
 class SplineIKChainControl : public Matrix3Controller
 {
 
@@ -52,11 +63,11 @@ public:
 	virtual MStatus					compute(const MPlug& plug, MDataBlock& data);
 	
 	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle);
+	static	MStatus						getSolution(const MObject& splineShape, const std::vector<IKControlSpec>& joints, std::vector<SplineIKSolution>& solution);
 
 	virtual	MStatus					solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices);
-	virtual	MStatus					refineSolution(const MObject& splineShape, const MPoint& origin, const double boneLength, MPoint& point, double& curveLength);
-	virtual	MDoubleArray			getBoneLengths(const std::vector<IKControlSpec>& joints);
-	virtual	MStatus					adjustPointsByLength(const MPointArray& points, const MDoubleArray& lengths, MPointArray& adjustedPoints);
+	static	MStatus					refineSolution(const MObject& splineShape, const unsigned int iterationLimit, const double tolerance, std::vector<SplineIKSolution> solution);
+	static	MStatus					getSolutionPoints(const std::vector<SplineIKSolution>& solutions, const double tolerance, MPointArray& points);
 
 	virtual	bool					setInternalValue(const MPlug& plug, const MDataHandle& handle);
 
