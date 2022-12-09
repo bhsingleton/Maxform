@@ -398,7 +398,7 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 		}
 		break;
 
-		case 1:
+		case 1: case 2:
 		{
 
 			return upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
