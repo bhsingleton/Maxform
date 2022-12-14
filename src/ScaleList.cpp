@@ -505,7 +505,7 @@ Returns the weighted average from the supplied array data handle.
 	unsigned int numElements = handle.elementCount(status);
 	CHECK_MSTATUS_AND_RETURN(*status, MVector::one);
 
-	if (!(0u <= active < numElements))
+	if (!(0u <= active && active < numElements))
 	{
 
 		return MVector::one;
@@ -580,7 +580,7 @@ Returns the weighted average from the supplied array data handle.
 	unsigned int elementCount = handle.elementCount();
 	unsigned int active = elementCount - 1;
 
-	if (0u <= active < elementCount)
+	if (0u <= active && active < elementCount)
 	{
 
 		return ScaleList::sum(handle, (elementCount - 1), normalizeWeights, status);
@@ -815,6 +815,7 @@ Use this function to define any static attributes.
 	ScaleList::x_scale = fnNumericAttr.create("x_scale", "xs", MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));
@@ -824,6 +825,7 @@ Use this function to define any static attributes.
 	ScaleList::y_scale = fnNumericAttr.create("y_scale", "ys",  MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));
@@ -833,6 +835,7 @@ Use this function to define any static attributes.
 	ScaleList::z_scale = fnNumericAttr.create("z_scale", "zs",  MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));

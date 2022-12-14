@@ -525,7 +525,7 @@ Returns the weighted average from the supplied array data handle.
 	unsigned int numElements = handle.elementCount(status);
 	CHECK_MSTATUS_AND_RETURN(*status, MQuaternion::identity);
 
-	if (!(0u <= active < numElements))
+	if (!(0u <= active && active < numElements))
 	{
 
 		return MQuaternion::identity;
@@ -603,7 +603,7 @@ Returns the weighted average from the supplied array data handle.
 	unsigned int elementCount = handle.elementCount();
 	unsigned int active = elementCount - 1;
 
-	if (0u <= active < elementCount)
+	if (0u <= active && active < elementCount)
 	{
 
 		return RotationList::sum(handle, (elementCount - 1), normalizeWeights, status);
@@ -847,6 +847,7 @@ Use this function to define any static attributes.
 	RotationList::x_rotation = fnUnitAttr.create("x_rotation", "xr", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::listCategory));
@@ -856,6 +857,7 @@ Use this function to define any static attributes.
 	RotationList::y_rotation = fnUnitAttr.create("y_rotation", "yr", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::listCategory));
@@ -865,6 +867,7 @@ Use this function to define any static attributes.
 	RotationList::z_rotation = fnUnitAttr.create("z_rotation", "zr", MFnUnitAttribute::kAngle, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::listCategory));

@@ -158,6 +158,8 @@ namespace Maxformations
 	MStatus			resetMatrixPlug(MPlug& plug);
 
 	bool			isPartiallyConnected(const MPlug& plug, const bool asDst, const bool asSrc, MStatus* status);
+	bool			isPartiallyLocked(const MPlug& plug, MStatus* status);
+	
 	MStatus			disconnectPlugs(const MPlug& plug, const MPlug& otherPlug);
 	MStatus			breakConnections(const MPlug& plug, bool asDst, bool asSrc);
 	MStatus			connectPlugs(const MPlug& plug, const MPlug& otherPlug, const bool force);

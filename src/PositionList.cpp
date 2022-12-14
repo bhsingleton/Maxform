@@ -506,7 +506,7 @@ Returns the weighted average from the supplied array data handle.
 	unsigned int numElements = handle.elementCount(status);
 	CHECK_MSTATUS_AND_RETURN(*status, MVector::zero);
 
-	if (!(0u <= active < numElements))
+	if (!(0u <= active && active < numElements))
 	{
 
 		return MVector::zero;
@@ -581,7 +581,7 @@ Returns the weighted average from the supplied array data handle.
 	unsigned int elementCount = handle.elementCount();
 	unsigned int active = elementCount - 1;
 
-	if (0u <= active < elementCount)
+	if (0u <= active && active < elementCount)
 	{
 
 		return PositionList::sum(handle, active, normalizeWeights, status);
@@ -806,6 +806,7 @@ Use this function to define any static attributes.
 	PositionList::x_position = fnUnitAttr.create("x_position", "xp", MFnUnitAttribute::kDistance, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::listCategory));
@@ -815,6 +816,7 @@ Use this function to define any static attributes.
 	PositionList::y_position = fnUnitAttr.create("y_position", "yp",  MFnUnitAttribute::kDistance, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::listCategory));
@@ -824,6 +826,7 @@ Use this function to define any static attributes.
 	PositionList::z_position = fnUnitAttr.create("z_position", "zp",  MFnUnitAttribute::kDistance, 0.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
+	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::inputCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::listCategory));

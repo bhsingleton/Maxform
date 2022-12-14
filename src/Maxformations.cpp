@@ -573,7 +573,7 @@ namespace Maxformations
 		//
 		unsigned int numMatrices = matrices.length();
 
-		if (numMatrices == 0 || !(0 <= forwardAxis < 3))
+		if (numMatrices == 0 || !(0 <= forwardAxis && forwardAxis < 3))
 		{
 
 			return MS::kFailure;
@@ -1521,7 +1521,7 @@ namespace Maxformations
 
 	bool isPartiallyConnected(const MPlug& plug, const bool asDst, const bool asSrc, MStatus* status)
 	/**
-	Evaluates if the supplied is partially connected to another node.
+	Evaluates if the supplied plug is partially connected to another node.
 	This includes child plugs and plug elements.
 
 	@param plug: The plug to inspect.
@@ -1636,6 +1636,122 @@ namespace Maxformations
 			unsigned int connectionCount = connections.length();
 
 			return (isConnected && connectionCount > 0u);
+
+		}
+
+	};
+
+	bool isPartiallyLocked(const MPlug& plug, MStatus* status)
+	/**
+	Evaluates if the supplied plug is partially locked.
+	This includes child plugs and plug elements.
+
+	@param plug: The plug to inspect.
+	@param status: Status code.
+	@return: Is locked.
+	*/
+	{
+
+		// Check for null plug
+		//
+		bool isNull = plug.isNull(status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		if (isNull)
+		{
+
+			return false;
+
+		}
+
+		// Check if this is a compound plug
+		//
+		bool isArray = plug.isArray(status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		bool isElement = plug.isElement(status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		bool isCompound = plug.isCompound(status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		if (isArray && !isElement)
+		{
+
+			// Iterate through children
+			//
+			unsigned int numElements = plug.numElements(status);
+			CHECK_MSTATUS_AND_RETURN(*status, false);
+
+			MPlug element;
+			bool isLocked;
+
+			for (unsigned int i = 0; i < numElements; i++)
+			{
+
+				// Evaluate if plug element is partially connected
+				//
+				element = plug.elementByPhysicalIndex(i, status);
+				CHECK_MSTATUS_AND_RETURN(*status, false);
+
+				isLocked = isPartiallyLocked(element, status);
+				CHECK_MSTATUS_AND_RETURN(*status, false);
+
+				if (isLocked)
+				{
+
+					return true;
+
+				}
+
+			}
+
+			return false;
+
+		}
+		else if (isCompound)
+		{
+
+			// Iterate through children
+			//
+			unsigned int numChildren = plug.numChildren(status);
+			CHECK_MSTATUS_AND_RETURN(*status, false);
+
+			MPlug child;
+			bool isLocked;
+
+			for (unsigned int i = 0; i < numChildren; i++)
+			{
+
+				// Evalaute if child plug is partially connected
+				//
+				child = plug.child(i, status);
+				CHECK_MSTATUS_AND_RETURN(*status, false);
+
+				isLocked = isPartiallyLocked(child, status);
+				CHECK_MSTATUS_AND_RETURN(*status, false);
+
+				if (isLocked)
+				{
+
+					return true;
+
+				}
+
+			}
+
+			return false;
+
+		}
+		else
+		{
+
+			// Evaluate plug
+			//
+			bool isLocked = plug.isLocked(status);
+			CHECK_MSTATUS_AND_RETURN(*status, false);
+
+			return isLocked;
 
 		}
 
@@ -1915,6 +2031,18 @@ namespace Maxformations
 
 		}
 		
+		// Check if either plugs are locked
+		//
+		bool isLocked = isPartiallyLocked(plug, &status) || isPartiallyLocked(otherPlug, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (isLocked)
+		{
+
+			return MS::kSuccess;  // Nothing we can do from here!
+
+		}
+
 		// Check if these are compound plugs
 		//
 		bool isCompound = plug.isCompound(&status) && otherPlug.isCompound(&status);
@@ -1986,6 +2114,18 @@ namespace Maxformations
 		{
 
 			return MS::kFailure;
+
+		}
+
+		// Check if either plugs are locked
+		//
+		bool isLocked = isPartiallyLocked(plug, &status) || isPartiallyLocked(otherPlug, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (isLocked)
+		{
+
+			return MS::kSuccess;  // Nothing we can do from here!
 
 		}
 
