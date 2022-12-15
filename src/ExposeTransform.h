@@ -45,57 +45,59 @@ class ExposeTransform : public Maxform
 
 public:
 
-						ExposeTransform();
-	virtual				~ExposeTransform();
+							ExposeTransform();
+	virtual					~ExposeTransform();
 
-	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
+	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 
-	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& dataHandle);
+	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
 
-	virtual	MStatus		legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
-	virtual	MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual	MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& dataHandle);
 
-	static  void*		creator();
-	static  MStatus		initialize();
+	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
+	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual	MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+
+	static  void*			creator();
+	static  MStatus			initialize();
 
 public:
 	
-	static	MObject		exposeNode;
-	static	MObject		exposeMatrix;
-	static	MObject		localReferenceNode;
-	static	MObject		localReferenceMatrix;
-	static	MObject		useParent;
-	static	MObject		useTimeOffset;
-	static	MObject		timeOffset;
+	static	MObject			exposeNode;
+	static	MObject			exposeMatrix;
+	static	MObject			localReferenceNode;
+	static	MObject			localReferenceMatrix;
+	static	MObject			useParent;
+	static	MObject			useTimeOffset;
+	static	MObject			timeOffset;
 	
-	static	MObject		localPosition;
-	static	MObject		localPositionX;
-	static	MObject		localPositionY;
-	static	MObject		localPositionZ;
-	static	MObject		worldPosition;
-	static	MObject		worldPositionX;
-	static	MObject		worldPositionY;
-	static	MObject		worldPositionZ;
-	static	MObject		eulerXOrder;
-	static	MObject		eulerYOrder;
-	static	MObject		eulerZOrder;
-	static	MObject		localEuler;
-	static	MObject		localEulerX;
-	static	MObject		localEulerY;
-	static	MObject		localEulerZ;
-	static	MObject		worldEuler;
-	static	MObject		worldEulerX;
-	static	MObject		worldEulerY;
-	static	MObject		worldEulerZ;
-	static	MObject		stripNUScale;
-	static	MObject		distance;
-	static	MObject		angle;
+	static	MObject			localPosition;
+	static	MObject			localPositionX;
+	static	MObject			localPositionY;
+	static	MObject			localPositionZ;
+	static	MObject			worldPosition;
+	static	MObject			worldPositionX;
+	static	MObject			worldPositionY;
+	static	MObject			worldPositionZ;
+	static	MObject			eulerXOrder;
+	static	MObject			eulerYOrder;
+	static	MObject			eulerZOrder;
+	static	MObject			localEuler;
+	static	MObject			localEulerX;
+	static	MObject			localEulerY;
+	static	MObject			localEulerZ;
+	static	MObject			worldEuler;
+	static	MObject			worldEulerX;
+	static	MObject			worldEulerY;
+	static	MObject			worldEulerZ;
+	static	MObject			stripNUScale;
+	static	MObject			distance;
+	static	MObject			angle;
 	
-	static	MString		exposeCategory;
+	static	MString			exposeCategory;
 
-	static	MTypeId		id;
-	static	MString		classification;
+	static	MTypeId			id;
+	static	MString			classification;
 	
 	
 private:

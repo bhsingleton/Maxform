@@ -49,61 +49,63 @@ class RotationList : public MPxNode
 
 public:
 
-						RotationList();
-	virtual				~RotationList();
+							RotationList();
+	virtual					~RotationList();
 
-	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
+	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
+	
+	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
 
-	static	MQuaternion	sum(MArrayDataHandle& handle, const bool normalizeWeights, MStatus* status);
-	static	MQuaternion	sum(MArrayDataHandle& handle, const unsigned int active, const bool normalizeWeights, MStatus* status);
-	static	MQuaternion	sum(std::vector<RotationListItem>& items, const bool normalizeWeights);
-	static	void		normalize(std::vector<RotationListItem>& items);
+	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& handle);
+	virtual MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
-	virtual	bool		setInternalValue(const MPlug& plug, const MDataHandle& handle);
-	virtual MStatus		connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual MStatus		connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	static	MQuaternion		sum(MArrayDataHandle& handle, const bool normalizeWeights, MStatus* status);
+	static	MQuaternion		sum(MArrayDataHandle& handle, const unsigned int active, const bool normalizeWeights, MStatus* status);
+	static	MQuaternion		sum(std::vector<RotationListItem>& items, const bool normalizeWeights);
+	static	void			normalize(std::vector<RotationListItem>& items);
 
-	virtual	MStatus		updateActiveController();
-	virtual	MStatus		pullController(unsigned int index);
-	virtual	MStatus		pushController(unsigned int index);
+	virtual	MStatus			updateActiveController();
+	virtual	MStatus			pullController(unsigned int index);
+	virtual	MStatus			pushController(unsigned int index);
 
-	virtual	Maxform*	maxformPtr();
+	virtual	Maxform*		maxformPtr();
 
-	static  void*		creator();
-	static  MStatus		initialize();
+	static  void*			creator();
+	static  MStatus			initialize();
 
 public:
 
-	static	MObject		active;
-	static	MObject		average;
-	static	MObject		list;
-	static	MObject		name;
-	static	MObject		weight;
-	static	MObject		absolute;
-	static	MObject		axisOrder;
-	static	MObject		rotation;
-	static	MObject		x_rotation;
-	static	MObject		y_rotation;
-	static	MObject		z_rotation;
+	static	MObject			active;
+	static	MObject			average;
+	static	MObject			list;
+	static	MObject			name;
+	static	MObject			weight;
+	static	MObject			absolute;
+	static	MObject			axisOrder;
+	static	MObject			rotation;
+	static	MObject			x_rotation;
+	static	MObject			y_rotation;
+	static	MObject			z_rotation;
 	
-	static	MObject		value;
-	static	MObject		valueX;
-	static	MObject		valueY;
-	static	MObject		valueZ;
-	static	MObject		preValue;
-	static	MObject		preValueX;
-	static	MObject		preValueY;
-	static	MObject		preValueZ;
-	static	MObject		matrix;
-	static	MObject		inverseMatrix;
+	static	MObject			value;
+	static	MObject			valueX;
+	static	MObject			valueY;
+	static	MObject			valueZ;
+	static	MObject			preValue;
+	static	MObject			preValueX;
+	static	MObject			preValueY;
+	static	MObject			preValueZ;
+	static	MObject			matrix;
+	static	MObject			inverseMatrix;
 
-	static	MString		inputCategory;
-	static	MString		outputCategory;
-	static	MString		listCategory;
-	static	MString		rotationCategory;
-	static	MString		preRotationCategory;
+	static	MString			inputCategory;
+	static	MString			outputCategory;
+	static	MString			listCategory;
+	static	MString			rotationCategory;
+	static	MString			preRotationCategory;
 
-	static	MTypeId		id;
+	static	MTypeId			id;
 	
 public:
 

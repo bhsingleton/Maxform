@@ -650,6 +650,39 @@ Returns the points from the supplied solution while accomodating for bone length
 };
 
 
+void SplineIKChainControl::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
+/**
+Provide node-specific setup info for the Cached Playback system.
+
+@param evaluationNode: This node's evaluation node, contains animated plug information.
+@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
+@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
+@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
+@return: void.
+*/
+{
+
+	// Call parent function
+	//
+	MPxNode::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
+	assert(!disablingInfo.getCacheDisabled());
+
+	// Update caching preference
+	//
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
+
+	// Append attributes for monitoring
+	//
+	monitoredAttributes.append(SplineIKChainControl::ikGoal);
+	monitoredAttributes.append(SplineIKChainControl::ikParentMatrix);
+	monitoredAttributes.append(SplineIKChainControl::jointMatrix);
+	monitoredAttributes.append(SplineIKChainControl::jointParentMatrix);
+	monitoredAttributes.append(SplineIKChainControl::upNode);
+	monitoredAttributes.append(SplineIKChainControl::splineShape);
+
+};
+
+
 bool SplineIKChainControl::setInternalValue(const MPlug& plug, const MDataHandle& handle)
 /**
 This method is overridden by nodes that store attribute data in some internal format.

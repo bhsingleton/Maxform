@@ -47,20 +47,23 @@ class Maxform : public MPxTransform
 
 public:
 
-										Maxform();
-	virtual								~Maxform();
+							Maxform();
+	virtual					~Maxform();
 
-	virtual MStatus						compute(const MPlug& plug, MDataBlock& data);
-	virtual	MStatus						computeLocalTransformation(MPxTransformationMatrix* xform, MDataBlock& data);
-	
-	virtual	void						getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
+	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
+	virtual	MStatus			computeLocalTransformation(MPxTransformationMatrix* xform, MDataBlock& data);
+	virtual bool			treatAsTransform() const;
 
-	virtual	MStatus						validateAndSetValue(const MPlug& plug, const MDataHandle& handle);
-	virtual	MStatus						connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual	MStatus						connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual	SchedulingType	schedulingType() const;
+	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
+	virtual MStatus			preEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode);
 
-	virtual	Matrix3*					matrix3Ptr();
-	virtual	MObjectHandle				thisMObjectHandle();
+	virtual	MStatus			validateAndSetValue(const MPlug& plug, const MDataHandle& handle);
+	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual	MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+
+	virtual	Matrix3*		matrix3Ptr();
+	virtual	MObjectHandle	thisMObjectHandle();
 
 	static  void*						creator();
 	virtual	MPxTransformationMatrix*	createTransformationMatrix();
@@ -68,24 +71,24 @@ public:
 	
 public:
 	
-	static	MObject		preRotate;
-	static	MObject		preRotateX;
-	static	MObject		preRotateY;
-	static	MObject		preRotateZ;
-	static	MObject		transform;
+	static	MObject			preRotate;
+	static	MObject			preRotateX;
+	static	MObject			preRotateY;
+	static	MObject			preRotateZ;
+	static	MObject			transform;
 
-	static	MObject		translationPart;
-	static	MObject		rotationPart;
-	static	MObject		scalePart;
+	static	MObject			translationPart;
+	static	MObject			rotationPart;
+	static	MObject			scalePart;
 
-	static	MString		preRotateCategory;
-	static	MString		matrixCategory;
-	static	MString		matrixPartsCategory;
-	static	MString		parentMatrixCategory;
-	static	MString		worldMatrixCategory;
+	static	MString			preRotateCategory;
+	static	MString			matrixCategory;
+	static	MString			matrixPartsCategory;
+	static	MString			parentMatrixCategory;
+	static	MString			worldMatrixCategory;
 
-	static	MString		classification;
-	static	MTypeId		id;
+	static	MString			classification;
+	static	MTypeId			id;
 
 };
 #endif

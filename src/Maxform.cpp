@@ -175,6 +175,36 @@ The caller needs to allocate space for the passed transformation matrix.
 };
 
 
+bool Maxform::treatAsTransform() const
+/**
+Maya's base transform node type is treated differently from node types which are derived from it.
+For example, the 'viewFit' command does not include transform nodes in its calculations but does include pointConstraint nodes which are derived from the transform node.
+By default, all custom transform node types are treated the same as Maya's base transform node type. Using the same example, by default a custom transform node will be excluded from the 'viewFit' command's calculations.
+This method allows that default behaviour to be changed. By overriding this method to return false, a custom node can turn off the special treatment accorded to transform nodes and instead have itself treated the same as Maya treats derived transform nodes.
+
+@return: True to be treated like a base transform node, false to be treated as a derived transform node.
+*/
+{
+
+	return false;
+
+};
+
+
+MPxNode::SchedulingType Maxform::schedulingType() const
+/**
+When overridden this method controls the degree of parallelism supported by the node during threaded evaluation.
+Defaults to SchedulingType::kDefaultScheduling.
+
+@return: The scheduling type to be used for this node. 
+*/
+{
+
+	return MPxNode::SchedulingType::kParallel;
+
+};
+
+
 void Maxform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
 /**
 Provide node-specific setup info for the Cached Playback system.
@@ -203,6 +233,44 @@ Provide node-specific setup info for the Cached Playback system.
 	monitoredAttributes.append(Maxform::preRotateY);
 	monitoredAttributes.append(Maxform::preRotateZ);
 	monitoredAttributes.append(Maxform::transform);
+
+};
+
+
+MStatus Maxform::preEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode)
+/**
+Prepare a node's internal state for threaded evaluation.
+During the evaluation graph execution each node gets a chance to reset its internal states just before being evaluated.
+This code has to be thread safe, non-blocking and work only on data owned by the node.
+The timing of this callback is at the discretion of evaluation graph dependencies and individual evaluators. This means, it should be used purely to prepare this node for evaluation and no particular order should be assumed.
+This call will most likely happen from a worker thread.
+When using Evaluation Caching or VP2 Custom Caching, preEvaluation() is called as part of the evaluation process. This function is not called as part of the cache restore process because no evaluation takes place in that case.
+
+@param context: Context in which the evaluation is happening. This should be respected and only internal state information pertaining to it should be modified.
+@param evaluationNode: Evaluation node which contains information about the dirty plugs that are about to be evaluated for the context. Should be only used to query information.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	if (context.isNormal())
+	{
+
+		if (evaluationNode.dirtyPlugExists(Maxform::preRotate, &status) && status ||
+			evaluationNode.dirtyPlugExists(Maxform::preRotateX, &status) && status ||
+			evaluationNode.dirtyPlugExists(Maxform::preRotateY, &status) && status ||
+			evaluationNode.dirtyPlugExists(Maxform::preRotateZ, &status) && status ||
+			evaluationNode.dirtyPlugExists(Maxform::transform, &status) && status)
+		{
+
+			this->dirtyMatrix();
+
+		}
+
+	}
+
+	return MPxTransform::preEvaluation(context, evaluationNode);
 
 };
 

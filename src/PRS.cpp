@@ -143,6 +143,45 @@ Only these values should be used when performing computations!
 };
 
 
+void PRS::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
+/**
+Provide node-specific setup info for the Cached Playback system.
+
+@param evaluationNode: This node's evaluation node, contains animated plug information.
+@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
+@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
+@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
+@return: void.
+*/
+{
+
+	// Call parent function
+	//
+	MPxNode::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
+	assert(!disablingInfo.getCacheDisabled());
+
+	// Update caching preference
+	//
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
+
+	// Append attributes for monitoring
+	//
+	monitoredAttributes.append(PRS::position);
+	monitoredAttributes.append(PRS::x_position);
+	monitoredAttributes.append(PRS::y_position);
+	monitoredAttributes.append(PRS::z_position);
+	monitoredAttributes.append(PRS::rotation);
+	monitoredAttributes.append(PRS::x_rotation);
+	monitoredAttributes.append(PRS::y_rotation);
+	monitoredAttributes.append(PRS::z_rotation);
+	monitoredAttributes.append(PRS::scale);
+	monitoredAttributes.append(PRS::x_scale);
+	monitoredAttributes.append(PRS::y_scale);
+	monitoredAttributes.append(PRS::z_scale);
+
+};
+
+
 bool PRS::isAbstractClass() const
 /**
 Override this class to return true if this node is an abstract node.
