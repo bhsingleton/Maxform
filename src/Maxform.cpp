@@ -186,7 +186,7 @@ This method allows that default behaviour to be changed. By overriding this meth
 */
 {
 
-	return false;
+	return true;
 
 };
 
