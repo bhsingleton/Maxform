@@ -54,9 +54,7 @@ public:
 	virtual	MStatus			computeLocalTransformation(MPxTransformationMatrix* xform, MDataBlock& data);
 	virtual bool			treatAsTransform() const;
 
-	virtual	SchedulingType	schedulingType() const;
 	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
-	virtual MStatus			preEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode);
 
 	virtual	MStatus			validateAndSetValue(const MPlug& plug, const MDataHandle& handle);
 	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
