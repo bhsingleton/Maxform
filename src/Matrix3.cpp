@@ -105,6 +105,24 @@ Assignment operator.
 };
 
 
+void Matrix3::copyValues(MPxTransformationMatrix* xform)
+/**
+This method should be overridden for any transform that uses more than the default transform values.
+The values from the passed class (which should be type checked and downcast to its appropriate value) should be copied to this class.
+Without this method being overridden, only the default transform components will get copied.
+
+@param xform: The user defined transformation matrix that should be copied. 
+@return: Void.
+*/
+{
+
+	this->translateTo(xform->translation());
+	this->rotateTo(xform->eulerRotation());
+	this->scaleTo(xform->scale());
+
+};
+
+
 MQuaternion Matrix3::preRotation() const
 /**
 Returns the rotate orientation for the transformation matrix as a quaternion.
