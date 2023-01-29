@@ -69,8 +69,6 @@ public:
 	static	MStatus			refineSolution(const MObject& splineShape, const unsigned int iterationLimit, const double tolerance, std::vector<SplineIKSolution> solution);
 	static	MStatus			getSolutionPoints(const std::vector<SplineIKSolution>& solutions, const double tolerance, MPointArray& points);
 
-	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
-
 	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& handle);
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);

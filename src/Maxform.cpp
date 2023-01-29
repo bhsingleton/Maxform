@@ -57,9 +57,25 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	bool isMatrix = fnAttribute.hasCategory(Maxform::matrixCategory);
 	bool isMatrixPart = fnAttribute.hasCategory(Maxform::matrixPartsCategory);
 	
-	if (isMatrixPart)
+	if (isMatrix)
+	{
+
+		// Compute local transformation matrix
+		//
+		MPxTransformationMatrix* transform = this->transformationMatrixPtr();
+
+		status = this->computeLocalTransformation(transform, data);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		
+		// Call parent function
+		//
+		return MPxTransform::compute(plug, data);
+
+	}
+	else if (isMatrixPart)
 	{
 
 		// Get transform value
@@ -81,7 +97,7 @@ Only these values should be used when performing computations!
 		MDataHandle scalePartHandle = data.outputValue(Maxform::scalePart, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		translationPartHandle.setMMatrix(Maxformations::createPositionMatrix(transform.asMatrix()));  // Why is there no .asTranslateMatrix()?
+		translationPartHandle.setMMatrix(Maxformations::createPositionMatrix(transform.asMatrix()));  // Why is there no `asTranslateMatrix` function?
 		translationPartHandle.setClean();
 
 		rotationPartHandle.setMMatrix(transform.asRotateMatrix());
@@ -121,21 +137,26 @@ The caller needs to allocate space for the passed transformation matrix.
 
 	MStatus status;
 
-	// Try and cast pointer to matrix3
+	// Try and cast pointer to `Matrix3` pointer
 	//
 	Matrix3* matrix3 = dynamic_cast<Matrix3*>(xform);
 
 	if (matrix3 == nullptr)
 	{
 
+		MGlobal::displayWarning("Unable to cast MPxTransformationMatrix* to Matrix3*");
 		return MPxTransform::computeLocalTransformation(xform, data);
 
 	}
 
 	// Check if matrix3 has been enabled
 	//
-	if (matrix3->isEnabled())
+	if (this->matrix3Enabled)
 	{
+
+		// Ensure matrix3 is enabled
+		//
+		matrix3->enable();
 
 		// Get input data handles
 		//
@@ -150,16 +171,16 @@ The caller needs to allocate space for the passed transformation matrix.
 
 		// Compose pre-rotation
 		//
-		MEulerRotation::RotationOrder rotationOrder = MEulerRotation::RotationOrder(rotateOrderHandle.asShort());
-		MVector eulerAngles = preRotateHandle.asVector();
+		unsigned int rotateOrder = rotateOrderHandle.asShort();
+		MVector radians = preRotateHandle.asVector();
 
-		MQuaternion preRotate = MEulerRotation(eulerAngles, rotationOrder).asQuaternion();
+		MQuaternion preRotation = MEulerRotation(radians, MEulerRotation::RotationOrder(rotateOrder)).asQuaternion();
 
 		// Update matrix3 values
 		//
 		MTransformationMatrix transform = Maxformations::getTransformData(transformHandle.data());
 
-		matrix3->setPreRotation(preRotate);
+		matrix3->setPreRotation(preRotation);
 		matrix3->setTransform(transform);
 
 		return MS::kSuccess;
@@ -168,6 +189,12 @@ The caller needs to allocate space for the passed transformation matrix.
 	else
 	{
 
+		// Disable matrix3
+		//
+		matrix3->disable();
+
+		// Call parent function
+		//
 		return MPxTransform::computeLocalTransformation(xform, data);
 
 	}
@@ -191,40 +218,13 @@ This method allows that default behaviour to be changed. By overriding this meth
 };
 
 
-void Maxform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
-/**
-Provide node-specific setup info for the Cached Playback system.
-
-@param evaluationNode: This node's evaluation node, contains animated plug information.
-@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
-@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
-@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
-@return: void.
-*/
-{
-
-	// Call parent function
-	//
-	MPxTransform::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
-	assert(!disablingInfo.getCacheDisabled());
-
-	// Update caching preference
-	//
-	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
-
-	// Append attributes for monitoring
-	//
-	monitoredAttributes.append(Maxform::transform);
-
-};
-
-
 MStatus Maxform::validateAndSetValue(const MPlug& plug, const MDataHandle& handle)
 /**
 When a plug's value is set, and the plug is on a default transform attribute, or has been flagged by the mustCallValidateAndSet() method, then this method will be called.
 The purpose of validateAndSetValue() is to enforce limits, constraints, or plug value locking.
 If the plug passed into this method is not an attribute related to the derived class, the derived class should call the validateAndSetValue method of its parent class in order to allow the base classes to handle their attributes.
-If any adjustments or corrections are required, they are placed in the data block and if the context is normal, into the cached transformation matrix. Values on the data block are in transform space.
+If any adjustments or corrections are required, they are placed in the data block and if the context is normal, into the cached transformation matrix.
+Values on the data block are in transform space.
 Formerly the context was passed in; now the context will already be set as the current one for evaluation so it isn't necessary. To retrieve the current evaluation context, call MDGContext::current.
 If you have specialty code that calls this method directly you'll have to ensure the current context is set using MDGContextGuard or MDGContext::makeCurrent.
 
@@ -243,10 +243,13 @@ If you have specialty code that calls this method directly you'll have to ensure
 
 		// Recompute local transformation matrix
 		//
-		MDataBlock data = this->forceCache();
-		MPxTransformationMatrix* xform = this->transformationMatrixPtr();
+		status = this->updateMatrixAttrs();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		status = this->computeLocalTransformation(xform, data);
+		MDataBlock data = this->forceCache();
+		MPxTransformationMatrix* transform = this->transformationMatrixPtr();
+
+		status = this->computeLocalTransformation(transform, data);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		status = data.setClean(plug);
@@ -257,9 +260,15 @@ If you have specialty code that calls this method directly you'll have to ensure
 		status = this->dirtyMatrix();
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	}
+		return MS::kSuccess;
 
-	return MPxTransform::validateAndSetValue(plug, handle);
+	}
+	else
+	{
+
+		return MPxTransform::validateAndSetValue(plug, handle);
+
+	}
 
 };
 
@@ -289,14 +298,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (attribute == Maxform::transform && !asSrc)
 	{
 
-		Matrix3* matrix3 = this->matrix3Ptr();
-
-		if (matrix3 != nullptr)
-		{
-
-			matrix3->enable();
-
-		}
+		this->matrix3Enabled = true;
 
 	}
 	else;
@@ -328,14 +330,7 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (attribute == Maxform::transform && !asSrc)
 	{
 
-		Matrix3* matrix3 = this->matrix3Ptr();
-
-		if (matrix3 != nullptr)
-		{
-
-			matrix3->disable();
-
-		}
+		this->matrix3Enabled = false;
 
 	}
 	else;
@@ -348,6 +343,8 @@ You should return kUnknownParameter to specify that maya should handle this conn
 Matrix3* Maxform::matrix3Ptr()
 /**
 This function returns a pointer to the cached Matrix3 for the current context.
+The result transformation matrix is not guaranteed to be update-to-date. 
+To get the valid transformation matrix, call updateMatrixAttrs() before this method!
 
 @return: The current Matrix3.
 */
@@ -367,19 +364,6 @@ This function returns a pointer to the cached Matrix3 for the current context.
 		return nullptr;
 
 	}
-
-};
-
-
-MObjectHandle Maxform::thisMObjectHandle()
-/**
-Returns an object handle for this instance.
-
-@return: Object handle.
-*/
-{
-
-	return MObjectHandle(this->thisMObject());
 
 };
 
@@ -554,13 +538,14 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::scalePart));
 	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::matrix));
 	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::inverseMatrix));
-	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentMatrix));
-	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentInverseMatrix));
-	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldMatrix));
-	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldInverseMatrix));
+	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentMatrix));
+	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentInverseMatrix));
+	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldMatrix));
+	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldInverseMatrix));
 
 	// Define attribute validations
 	//
+	//Maxform::mustCallValidateAndSet(Maxform::preRotate);
 	Maxform::mustCallValidateAndSet(Maxform::transform);
 
 	return status;

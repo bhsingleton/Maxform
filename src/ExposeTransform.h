@@ -50,8 +50,6 @@ public:
 
 	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 
-	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
-
 	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& dataHandle);
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);

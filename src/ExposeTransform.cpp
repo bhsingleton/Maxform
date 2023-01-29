@@ -291,31 +291,6 @@ Only these values should be used when performing computations!
 };
 
 
-void ExposeTransform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
-/**
-Provide node-specific setup info for the Cached Playback system.
-
-@param evaluationNode: This node's evaluation node, contains animated plug information.
-@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
-@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
-@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
-@return: void.
-*/
-{
-
-	// Call parent function
-	//
-	Maxform::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
-	assert(!disablingInfo.getCacheDisabled());
-
-	// Append attributes for monitoring
-	//
-	monitoredAttributes.append(ExposeTransform::exposeMatrix);
-	monitoredAttributes.append(ExposeTransform::localReferenceMatrix);
-
-};
-
-
 bool ExposeTransform::setInternalValue(const MPlug& plug, const MDataHandle& handle)
 /**
 This method is overridden by nodes that store attribute data in some internal format.

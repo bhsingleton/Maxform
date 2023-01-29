@@ -620,38 +620,6 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 };
 
 
-void IKChainControl::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
-/**
-Provide node-specific setup info for the Cached Playback system.
-
-@param evaluationNode: This node's evaluation node, contains animated plug information.
-@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
-@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
-@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
-@return: void.
-*/
-{
-
-	// Call parent function
-	//
-	MPxNode::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
-	assert(!disablingInfo.getCacheDisabled());
-
-	// Update caching preference
-	//
-	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
-
-	// Append attributes for monitoring
-	//
-	monitoredAttributes.append(IKChainControl::ikGoal);
-	monitoredAttributes.append(IKChainControl::ikParentMatrix);
-	monitoredAttributes.append(IKChainControl::jointMatrix);
-	monitoredAttributes.append(IKChainControl::jointParentMatrix);
-	monitoredAttributes.append(IKChainControl::vhTarget);
-
-};
-
-
 MStatus IKChainControl::legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal)
 /**
 This method allows you to check for legal connections being made to attributes of this node.

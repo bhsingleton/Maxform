@@ -54,14 +54,11 @@ public:
 	virtual	MStatus			computeLocalTransformation(MPxTransformationMatrix* xform, MDataBlock& data);
 	virtual bool			treatAsTransform() const;
 
-	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
-
 	virtual	MStatus			validateAndSetValue(const MPlug& plug, const MDataHandle& handle);
 	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 	virtual	MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
 	virtual	Matrix3*		matrix3Ptr();
-	virtual	MObjectHandle	thisMObjectHandle();
 
 	static  void*						creator();
 	virtual	MPxTransformationMatrix*	createTransformationMatrix();
@@ -87,6 +84,10 @@ public:
 
 	static	MString			classification;
 	static	MTypeId			id;
+
+private:
+
+			bool			matrix3Enabled;
 
 };
 #endif

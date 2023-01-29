@@ -41,8 +41,6 @@ public:
 
 	virtual MStatus		compute(const MPlug& plug, MDataBlock& data);
 	
-	virtual	void		getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
-
 	virtual	bool		isAbstractClass() const;
 	static  void*		creator();
 	static  MStatus		initialize();
