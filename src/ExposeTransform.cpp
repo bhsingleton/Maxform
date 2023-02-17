@@ -440,20 +440,13 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (attribute == ExposeTransform::exposeNode && !asSrc)
 	{
 
-		// Destroy node handle
-		//
 		this->exposeHandle = MObjectHandle();
-		this->updateExposeMatrix();
-		this->updateLocalReferenceMatrix();
 
 	}
 	else if (attribute == ExposeTransform::localReferenceNode && !asSrc)
 	{
 
-		// Destroy node handle
-		//
 		this->localReferenceHandle = MObjectHandle();
-		this->updateLocalReferenceMatrix();
 
 	}
 	else;
