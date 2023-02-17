@@ -218,6 +218,34 @@ This method allows that default behaviour to be changed. By overriding this meth
 };
 
 
+void Maxform::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
+/**
+Provide node-specific setup info for the Cached Playback system.
+
+@param evaluationNode: This node's evaluation node, contains animated plug information.
+@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
+@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
+@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
+@return: void.
+*/
+{
+
+	// Call parent function
+	//
+	MPxTransform::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
+	assert(!disablingInfo.getCacheDisabled());
+
+	// Update caching preference
+	//
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
+
+	// Append attributes for monitoring
+	//
+	monitoredAttributes.append(Maxform::transform);
+
+};
+
+
 MStatus Maxform::validateAndSetValue(const MPlug& plug, const MDataHandle& handle)
 /**
 When a plug's value is set, and the plug is on a default transform attribute, or has been flagged by the mustCallValidateAndSet() method, then this method will be called.
@@ -538,14 +566,13 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::scalePart));
 	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::matrix));
 	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::inverseMatrix));
-	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentMatrix));
-	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentInverseMatrix));
-	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldMatrix));
-	//CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldInverseMatrix));
+	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentMatrix));
+	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::parentInverseMatrix));
+	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldMatrix));
+	CHECK_MSTATUS(Maxform::attributeAffects(Maxform::transform, Maxform::worldInverseMatrix));
 
 	// Define attribute validations
 	//
-	//Maxform::mustCallValidateAndSet(Maxform::preRotate);
 	Maxform::mustCallValidateAndSet(Maxform::transform);
 
 	return status;
