@@ -44,7 +44,6 @@ struct IKControlSpec
 	MEulerRotation offsetRotation = MEulerRotation::identity;  // Offset rotation
 	MMatrix matrix = MMatrix::identity;  // Local transform matrix
 	double length = 0.0;  // Length of bone
-	double distance = 0.0;  // Distance from root of chain
 
 };
 

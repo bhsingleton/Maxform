@@ -311,7 +311,7 @@ Returns an array of ik-control specs from the supplied array handle.
 	MDataHandle elementHandle, preferredRotationHandle, offsetRotationHandle, matrixHandle;
 	MEulerRotation preferredRotation, offsetRotation;
 	MMatrix matrix;
-	double length, distance = 0.0;
+	double length = 0.0;
 
 	for (unsigned int i = 0; i < numElements; i++)
 	{
@@ -331,9 +331,8 @@ Returns an array of ik-control specs from the supplied array handle.
 		matrixHandle = elementHandle.child(IKChainControl::jointMatrix);
 		matrix = Maxformations::getMatrixData(matrixHandle.data());
 		length = i > 0 ? Maxformations::matrixToPosition(matrix).length() : 0.0;
-		distance += length;
 
-		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, length, distance };
+		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, length };
 
 	}
 

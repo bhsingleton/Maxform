@@ -41,17 +41,6 @@ class IKControl;  // Forward declaration for evaluating legal connections!
 struct IKControlSpec;  // Forward declaration for storing joint data!
 
 
-struct SplineIKSolution
-{
-
-	double param = 0.0;  // Curve parameter of point
-	double distance = 0.0;  // Distance from the root of curve
-	double boneLength = 0.0;  // Length of this bone
-	MPoint point = MPoint::origin;  // Point on curve
-
-};
-
-
 class SplineIKChainControl : public Matrix3Controller
 {
 
@@ -63,13 +52,12 @@ public:
 	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 	
 	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle);
-	static	MStatus						getSolution(const MObject& splineShape, const std::vector<IKControlSpec>& joints, std::vector<SplineIKSolution>& solution);
-
+	static	double			getChainLength(const std::vector<IKControlSpec>& joints);
 	virtual	MStatus			solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices);
-	static	MStatus			refineSolution(const MObject& splineShape, const unsigned int iterationLimit, const double tolerance, std::vector<SplineIKSolution> solution);
-	static	MStatus			getSolutionPoints(const std::vector<SplineIKSolution>& solutions, const double tolerance, MPointArray& points);
-
-	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& handle);
+	static	MStatus			getSplineSamples(const MObject& splineShape, unsigned int numSamples, const double chainLength, MPointArray& samples);
+	static	MStatus			findSolution(const MPointArray& points, const std::vector<IKControlSpec>& joints, MPointArray& solution);
+	static	MPointArray		lineSphereIntersection(const MPoint& startPoint, const MPoint& endPoint, const MPoint& center, const double radius);
+	static	void			debugIntersection(const unsigned int index, const MPoint& startPoint, const MPoint& endPoint, const MPoint& center, const double radius, const MPointArray& hit);
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
 	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
@@ -104,8 +92,6 @@ public:
 	static	MObject			endTwistAngle;
 	static	MObject			upNode;
 	static	MObject			useUpNode;
-	static	MObject			iterations;  // Controls the maximum number of iterations for each solution
-	static	MObject			tolerance;  // Controls the margin of error allowed for each solution
 
 	static	MObject			goal;
 
@@ -117,8 +103,6 @@ public:
 protected:
 
 			PRS*			prs;
-			float			toleranceValue;
-			int				iterationLimit;
 
 };
 
