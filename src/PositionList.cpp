@@ -46,8 +46,8 @@ Constructor.
 {
 	
 	this->prs = nullptr; 
-	this->previousIndex = 0; 
-	this->activeIndex = 0;
+	this->previousIndex = -1; 
+	this->activeIndex = -1;
 
 };
 
@@ -229,34 +229,36 @@ Another use for this method is to impose attribute limits.
 {
 
 	MStatus status;
-
-	// Inspect plug attribute
+	
+	// Evaluate plug
 	//
-	bool isSceneLoading = Maxformations::isSceneLoading();
-
-	if (plug == PositionList::active && !isSceneLoading)
+	if (plug == PositionList::active)
 	{
 
-		// Check if index is in range
-		//
-		MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
+		// Check is scene being loaded
+		// 
+		bool isSceneLoading = Maxformations::isSceneLoading();
 
-		unsigned int numElements = listPlug.numElements();
-		CHECK_MSTATUS_AND_RETURN(status, false);
+		if (isSceneLoading)
+		{
 
-		this->activeIndex = Maxformations::clamp(handle.asInt(), 0, (int)(numElements - 1));
-		this->updateActiveController();
+			// Cache active indices
+			//
+			this->previousIndex = this->activeIndex = handle.asShort();
+
+		}
+		else
+		{
+
+			// Update active controller
+			//
+			this->activeIndex = handle.asInt();
+			this->updateActiveController();
+
+		}
+		
 
 	}
-	else if (plug == PositionList::active && isSceneLoading)
-	{
-
-		// Cache active indices
-		//
-		this->previousIndex = this->activeIndex = handle.asShort();
-
-	}
-	else;
 
 	return MPxNode::setInternalValue(plug, handle);
 
@@ -272,14 +274,11 @@ Updates the active controller.
 */
 {
 
-	MStatus status;
-
 	// Redundancy check
 	//
 	Maxform* maxform = this->maxformPtr();
-	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (this->previousIndex == this->activeIndex || maxform == nullptr || isSceneLoading)
+	if (this->previousIndex == this->activeIndex || maxform == nullptr)
 	{
 
 		return MS::kSuccess;  // Nothing to do here~!
@@ -288,11 +287,16 @@ Updates the active controller.
 
 	// Transfer connections
 	//
-	this->pullController(this->previousIndex);
-	this->pushController(this->activeIndex);
-	
-	MGlobal::displayInfo("Updated active position controller!");
-	this->previousIndex = this->activeIndex;
+	MStatus pullStatus = this->pullController(this->previousIndex);
+	MStatus pushStatus = this->pushController(this->activeIndex);
+
+	if (pullStatus || pushStatus)
+	{
+
+		MGlobal::displayInfo("Updated active position controller!");
+		this->previousIndex = this->activeIndex;
+
+	}
 
 	return MS::kSuccess;
 
@@ -301,7 +305,8 @@ Updates the active controller.
 
 MStatus PositionList::pullController(unsigned int index)
 /**
-Transfers any connections from the associated maxform back to the specified index.
+Transfers any connections from the associated maxform back to the specified list element.
+A `MS::kNotFound` status will be returned if the index is not in range!
 
 @param index: The index to transfer connections to.
 @return: Return status.
@@ -321,29 +326,48 @@ Transfers any connections from the associated maxform back to the specified inde
 
 	}
 
-	// Get position plugs
+	// Check if active index is in range
 	//
-	MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
-	
 	MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
-	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(PositionList::position);
-	
-	// Transfer connections to controller
-	//
-	status = Maxformations::breakConnections(controllerPlug, true, false);
+
+	unsigned int numElements = listPlug.numElements(&status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = Maxformations::transferConnections(translatePlug, controllerPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (0 <= index && index < numElements)
+	{
 
-	return status;
+		// Get required plugs
+		//
+		MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
+
+		MPlug listElement = listPlug.elementByLogicalIndex(index);
+		MPlug positionElement = listElement.child(PositionList::position);
+
+		// Pull position connections from maxform
+		//
+		status = Maxformations::breakConnections(positionElement, true, false);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = Maxformations::transferConnections(translatePlug, positionElement);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		return status;
+
+	}
+	else
+	{
+
+		return MS::kNotFound;
+
+	}
 
 };
 
 
 MStatus PositionList::pushController(unsigned int index)
 /**
-Transfers any connections from the specified index to the associated maxform.
+Transfers any connections from the specified list element to the associated maxform.
+A `MS::kNotFound` status will be returned if the index is not in range!
 
 @param index: The index to transfer connections from.
 @return: Return status.
@@ -363,25 +387,43 @@ Transfers any connections from the specified index to the associated maxform.
 
 	}
 
-	// Get position plugs
+	// Check if active index is in range
 	//
-	MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
-
 	MPlug listPlug = MPlug(this->thisMObject(), PositionList::list);
-	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(PositionList::position);
 
-	// Update controller connections
-	//
-	status = Maxformations::transferValues(controllerPlug, translatePlug);
+	unsigned int numElements = listPlug.numElements(&status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = Maxformations::transferConnections(controllerPlug, translatePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (0 <= index && index < numElements)
+	{
 
-	status = Maxformations::connectPlugs(translatePlug, controllerPlug, true);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+		// Get required plugs
+		//
+		MPlug translatePlug = MPlug(maxform->thisMObject(), Maxform::translate);
 
-	return status;
+		MPlug listElement = listPlug.elementByLogicalIndex(index);
+		MPlug positionElement = listElement.child(PositionList::position);
+
+		// Push position connections to maxform
+		//
+		status = Maxformations::transferValues(positionElement, translatePlug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = Maxformations::transferConnections(positionElement, translatePlug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = Maxformations::connectPlugs(translatePlug, positionElement, true);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		return status;
+
+	}
+	else
+	{
+
+		return MS::kNotFound;
+
+	}
 
 };
 
@@ -548,7 +590,7 @@ Returns the weighted average from the supplied array data handle.
 		// Get values from handles
 		//
 		name = nameHandle.asString();
-		weight = weightHandle.asFloat();
+		weight = Maxformations::clamp(weightHandle.asFloat(), -1.0f, 1.0f);
 		absolute = absoluteHandle.asBool();
 		positionX = positionXHandle.asDistance().asCentimeters();
 		positionY = positionYHandle.asDistance().asCentimeters();

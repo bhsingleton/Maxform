@@ -138,7 +138,7 @@ namespace Maxformations
 
 	MMatrix createRotationMatrix(const MVector& radians, const AxisOrder axisOrder)
 	/**
-	Creates a rotation matrix from the supplied angles and axis order.
+	Creates a rotation matrix from the supplied radians and axis order.
 
 	@param radians: The XYZ values in radians.
 	@param axisOrder: The axis order.
@@ -147,6 +147,34 @@ namespace Maxformations
 	{
 
 		return createRotationMatrix(radians.x, radians.y, radians.z, axisOrder);
+
+	};
+
+	MMatrix createRotationMatrix(const MVector& radians, const MEulerRotation::RotationOrder rotationOrder)
+	/**
+	Creates a rotation matrix from the supplied radians and rotation order.
+
+	@param radians: The XYZ values in radians.
+	@param axisOrder: The rotation order.
+	@return: The new rotation matrix.
+	*/
+	{
+
+		AxisOrder axisOrder = Maxformations::rotationToAxisOrder(rotationOrder);
+		return Maxformations::createRotationMatrix(radians, axisOrder);
+
+	};
+
+	MMatrix createRotationMatrix(const MVector& radians)
+	/**
+	Creates a rotation matrix from the supplied angles.
+
+	@param radians: The XYZ values in radians.
+	@return: The new rotation matrix.
+	*/
+	{
+
+		return createRotationMatrix(radians.x, radians.y, radians.z, AxisOrder::xyz);
 
 	};
 
@@ -203,21 +231,57 @@ namespace Maxformations
 
 	};
 
-	MStatus createAimMatrix(const MVector& forwardVector, const int forwardAxis, const MVector& upVector, const int upAxis, const MPoint& origin, MMatrix& matrix)
+	MVector getAxisVector(const MMatrix& matrix, const int axis, const bool flip)
+	/**
+	Returns the vector for the specified axis.
+
+	@param matrix: The matrix to sample from.
+	@param axis: The requested axis.
+	@param flip: Determines if the axis should be inversed.
+	@return: The associated axis vector.
+	*/
+	{
+
+		switch (axis)
+		{
+
+			case 0:
+				return flip ? -MVector(matrix[0]) : MVector(matrix[0]);
+
+			case 1:
+				return flip ? -MVector(matrix[1]) : MVector(matrix[1]);
+
+			case 2:
+				return flip ? -MVector(matrix[2]) : MVector(matrix[2]);
+
+			default:
+				return MVector::zero;
+
+		}
+
+	};
+
+	MStatus createAimMatrix(const MVector& forwardVector, const int forwardAxis, const bool forwardAxisFlip, const MVector& upVector, const int upAxis, const bool upAxisFlip, const MPoint& origin, MMatrix& matrix)
 	/**
 	Creates an aim matrix from the supplied parameters.
 	Both of the supplied axes must be unique!
 
-	@param forwardVector: The forward vector.
-	@param forwardAxis: The forward axis.
-	@param upVector: The up vector.
-	@param upAxis: The up axis.
+	@param forwardVector: The forward-vector.
+	@param forwardAxis: The forward-axis.
+	@param forwardAxisFlip: Determines if the forward-axis should be flipped.
+	@param upVector: The up-vector.
+	@param upAxis: The up-axis.
+	@param upAxisFlip: Determines if the up-axis should be flipped.
 	@param origin: The point of origin.
 	@param matrix: The passed matrix to populate.
 	@return: Return status.
 	*/
 	{
 
+		MStatus status;
+
+		// Evaluate forward-axis
+		//
 		MVector xAxis = MVector::xAxis;
 		MVector yAxis = MVector::yAxis;
 		MVector zAxis = MVector::zAxis;
@@ -228,19 +292,19 @@ namespace Maxformations
 			case 0:
 			{
 
-				xAxis = forwardVector;
+				xAxis = forwardAxisFlip ? MVector(-forwardVector) : MVector(forwardVector);
 
 				if (upAxis == 1)
 				{
 
-					zAxis = xAxis ^ upVector;
+					zAxis = xAxis ^ (upAxisFlip ? MVector(-upVector) : MVector(upVector));
 					yAxis = zAxis ^ xAxis;
 
 				}
 				else if (upAxis == 2)
 				{
 
-					yAxis = upVector ^ xAxis;
+					yAxis = (upAxisFlip ? MVector(-upVector) : MVector(upVector)) ^ xAxis;
 					zAxis = xAxis ^ yAxis;
 
 				}
@@ -257,19 +321,19 @@ namespace Maxformations
 			case 1:
 			{
 
-				yAxis = forwardVector;
+				yAxis = forwardAxisFlip ? MVector(-forwardVector) : MVector(forwardVector);
 
 				if (upAxis == 0)
 				{
 
-					zAxis = upVector ^ yAxis;
+					zAxis = (upAxisFlip ? MVector(-upVector) : MVector(upVector)) ^ yAxis;
 					xAxis = yAxis ^ zAxis;
 
 				}
 				else if (upAxis == 2)
 				{
 
-					xAxis = yAxis ^ upVector;
+					xAxis = yAxis ^ (upAxisFlip ? MVector(-upVector) : MVector(upVector));
 					zAxis = xAxis ^ yAxis;
 
 				}
@@ -286,19 +350,19 @@ namespace Maxformations
 			case 2:
 			{
 
-				zAxis = forwardVector;
+				zAxis = forwardAxisFlip ? MVector(-forwardVector) : MVector(forwardVector);
 
 				if (upAxis == 0)
 				{
 
-					yAxis = zAxis ^ upVector;
+					yAxis = zAxis ^ (upAxisFlip ? MVector(-upVector) : MVector(upVector));
 					xAxis = yAxis ^ zAxis;
 
 				}
 				else if (upAxis == 1)
 				{
 
-					xAxis = upVector ^ zAxis;
+					xAxis = (upAxisFlip ? MVector(-upVector) : MVector(upVector)) ^ zAxis;
 					yAxis = zAxis ^ xAxis;
 
 				}
@@ -321,8 +385,40 @@ namespace Maxformations
 
 		}
 
-		matrix = createMatrix(xAxis, yAxis, zAxis, origin);
+		// Normalize axis vectors
+		//
+		status = xAxis.normalize();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = yAxis.normalize();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = zAxis.normalize();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Compose aim matrix
+		//
+		matrix = Maxformations::composeMatrix(xAxis, yAxis, zAxis, origin);
 		return MS::kSuccess;
+
+	};
+
+	MStatus createAimMatrix(const MVector& forwardVector, const int forwardAxis, const MVector& upVector, const int upAxis, const MPoint& origin, MMatrix& matrix)
+	/**
+	Creates an aim matrix from the supplied parameters.
+	Both of the supplied axes must be unique!
+
+	@param forwardVector: The forward vector.
+	@param forwardAxis: The forward axis.
+	@param upVector: The up vector.
+	@param upAxis: The up axis.
+	@param origin: The point of origin.
+	@param matrix: The passed matrix to populate.
+	@return: Return status.
+	*/
+	{
+
+		return Maxformations::createAimMatrix(forwardVector, forwardAxis, false, upVector, upAxis, false, origin, matrix);
 
 	};
 
@@ -349,7 +445,7 @@ namespace Maxformations
 
 	MStatus createAimMatrix(const MPointArray& points, const int forwardAxis, const bool forwardAxisFlip, const MVector& upVector, const int upAxis, const bool upAxisFlip, MMatrixArray& matrices)
 	/**
-	Creates an aim matrix from the supplied parameters.
+	Creates a series of aim matrices through the supplied points.
 	Both of the supplied axes must be unique and none of the points should be overlapping!
 
 	@param points: The array of consecutive points.
@@ -414,6 +510,47 @@ namespace Maxformations
 
 	};
 
+	MStatus createTwistMatrix(const short forwardAxis, const MAngle& angle, MMatrix& matrix)
+	/**
+	Creates a twist matrix from the supplied forward axis and angle.
+
+	@param forwardAxis: The forward axis to rotate from.
+	@param angle: The angle of rotation.
+	@param matrix: The passed matrix to populate.
+	@return: Return status.
+	*/
+	{
+
+		double radian = angle.asRadians();
+
+		switch (forwardAxis)
+		{
+
+			case 0:
+
+				matrix = MEulerRotation(radian, 0.0, 0.0).asMatrix();
+				break;
+
+			case 1:
+
+				matrix = MEulerRotation(0.0, radian, 0.0).asMatrix();
+				break;
+
+			case 2:
+
+				matrix = MEulerRotation(0.0, 0.0, radian).asMatrix();
+				break;
+
+			default:
+
+				return MS::kFailure;
+
+		}
+
+		return MS::kSuccess;
+
+	};
+
 	MMatrix createScaleMatrix(const double x, const double y, const double z)
 	/**
 	Returns a scale matrix from the supplied XYZ values.
@@ -462,27 +599,7 @@ namespace Maxformations
 
 	};
 
-	void breakMatrix(const MMatrix& matrix, MVector& xAxis, MVector& yAxis, MVector& zAxis, MPoint& position)
-	/**
-	Breaks the supplied matrix into its axis vector and position components.
-
-	@param matrix: The matrix to break.
-	@param xAxis: The x-axis vector.
-	@param yAxis: The y-axis vector.
-	@param zAxis: The z-axis vector.
-	@param position: The positional value.
-	@return: Void.
-	*/
-	{
-
-		xAxis = MVector(matrix[0]);
-		yAxis = MVector(matrix[1]);
-		zAxis = MVector(matrix[2]);
-		position = MVector(matrix[3]);
-
-	};
-
-	MMatrix createMatrix(const MVector& xAxis, const MVector& yAxis, const MVector& zAxis, const MPoint& position)
+	MMatrix composeMatrix(const MVector& xAxis, const MVector& yAxis, const MVector& zAxis, const MPoint& position)
 	/**
 	Returns a matrix from the supplied axis vectors and position.
 
@@ -502,6 +619,110 @@ namespace Maxformations
 		};
 
 		return MMatrix(rows);
+
+	};
+	
+	MStatus composeMatrix(const MObject& mesh, const unsigned int triangleIndex, const MVector& baryCoords, MMatrix& matrix)
+	/**
+	Composes a transformation matrix from the supplied mesh.
+
+	@param mesh: The passed mesh to sample from.
+	@param triangleIndex: The triangle index to sample from.
+	@param baryCoords: The barycentric co-ordinates for the specified triangle.
+	@param matrix: The passed transformation matrix to populate.
+	@return: Status code.
+	*/
+	{
+
+		MStatus status;
+
+		// Initialize mesh function set
+		//
+		MFnMesh fnMesh(mesh, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Evaluate mesh triangulation
+		//
+		MIntArray triangleCounts, triangleVertices;
+
+		status = fnMesh.getTriangles(triangleCounts, triangleVertices);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		unsigned int numTriangles = Maxformations::sum(triangleCounts);
+
+		// Get triangle-vertex indices
+		//
+		unsigned int normalizedTriangleIndex = Maxformations::loop(triangleIndex, (unsigned int)0, numTriangles);
+
+		unsigned int triangleOffset = normalizedTriangleIndex * 3;
+		unsigned int v1 = triangleVertices[triangleOffset];
+		unsigned int v2 = triangleVertices[triangleOffset + 1];
+		unsigned int v3 = triangleVertices[triangleOffset + 2];
+
+		// Get triangle-vertex points
+		//
+		MPoint p1, p2, p3;
+
+		status = fnMesh.getPoint(v1, p1, MSpace::kWorld);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = fnMesh.getPoint(v2, p2, MSpace::kWorld);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = fnMesh.getPoint(v3, p3, MSpace::kWorld);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Calculate position from barycentric average
+		//
+		MPoint position = (p1 * baryCoords.x) + (p2 * baryCoords.y) + (p3 * baryCoords.z);
+
+		// Calculate transform matrix axes
+		//
+		MVector xAxis = (p2 - p1).normal();
+		MVector zAxis = ((p2 - p1).normal() ^ (p3 - p1).normal()).normal();
+		MVector yAxis = (zAxis ^ xAxis).normal();
+
+		matrix = Maxformations::composeMatrix(xAxis, yAxis, zAxis, position);
+
+		return MS::kSuccess;
+
+	};
+
+	void decomposeMatrix(const MMatrix& matrix, MPoint& position, MQuaternion& rotation, MVector& scale)
+	/**
+	Decomposes the supplied transformation matrix into its separate position, rotation and scale components.
+
+	@param matrix: The transformation matrix to decompose.
+	@param position: Passed point to populate.
+	@param rotation: Passed quaternion to populate.
+	@param scale: Passed vector to populate.
+	@return: Void.
+	*/
+	{
+
+		position = Maxformations::matrixToPosition(matrix);
+		rotation = Maxformations::matrixToQuaternion(matrix);
+		scale = Maxformations::matrixToScale(matrix);
+
+	};
+
+	void breakMatrix(const MMatrix& matrix, MVector& xAxis, MVector& yAxis, MVector& zAxis, MPoint& position)
+		/**
+		Breaks the supplied matrix into its axis vector and position components.
+
+		@param matrix: The matrix to break.
+		@param xAxis: The x-axis vector.
+		@param yAxis: The y-axis vector.
+		@param zAxis: The z-axis vector.
+		@param position: The positional value.
+		@return: Void.
+		*/
+	{
+
+		xAxis = MVector(matrix[0]);
+		yAxis = MVector(matrix[1]);
+		zAxis = MVector(matrix[2]);
+		position = MVector(matrix[3]);
 
 	};
 
@@ -529,7 +750,7 @@ namespace Maxformations
 
 		// Compose new matrix
 		//
-		return createMatrix(xAxis, yAxis, zAxis, position);
+		return Maxformations::composeMatrix(xAxis, yAxis, zAxis, position);
 
 	};
 
@@ -610,10 +831,10 @@ namespace Maxformations
 	Re-orients the passed matrices based on the supplied axis alignments.
 
 	@param matrices: The matrices to re-orient.
-	@param forwardAxis: The forward axis.
-	@param forwardAxisFlip: Determines if forward axis should be flipped.
-	@param upAxis: The up axis.
-	@param upAxisFlip: Determines if up axis should be flipped.
+	@param forwardAxis: The forward-axis.
+	@param forwardAxisFlip: Determines if the forward-axis should be flipped.
+	@param upAxis: The up-axis.
+	@param upAxisFlip: Determines if the up-axis should be flipped.
 	@return: The re-oriented matrices.
 	*/
 	{
@@ -1214,13 +1435,13 @@ namespace Maxformations
 	};
 
 	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const MEulerRotation::RotationOrder rotationOrder)
-		/**
-		Converts the supplied transform matrix into an euler rotation using the specified rotation order.
+	/**
+	Converts the supplied transform matrix into an euler rotation using the specified rotation order.
 
-		@param matrix: The matrix to convert.
-		@param axis: The rotation order for the euler angles.
-		@return: The euler rotation.
-		*/
+	@param matrix: The matrix to convert.
+	@param axis: The rotation order for the euler angles.
+	@return: The euler rotation.
+	*/
 	{
 
 		MEulerRotation eulerRotation;
@@ -1232,13 +1453,13 @@ namespace Maxformations
 	};
 
 	MEulerRotation matrixToEulerRotation(const MMatrix& matrix, const MTransformationMatrix::RotationOrder rotationOrder)
-		/**
-		Converts the supplied transform matrix into an euler rotation using the specified rotation order.
+	/**
+	Converts the supplied transform matrix into an euler rotation using the specified rotation order.
 
-		@param matrix: The matrix to convert.
-		@param axis: The rotation order for the euler angles.
-		@return: The euler rotation.
-		*/
+	@param matrix: The matrix to convert.
+	@param axis: The rotation order for the euler angles.
+	@return: The euler rotation.
+	*/
 	{
 
 		return matrixToEulerRotation(matrix, MEulerRotation::RotationOrder(rotationOrder - 1));
@@ -1362,13 +1583,13 @@ namespace Maxformations
 	};
 
 	MAngle angleBetween(const MMatrix& startMatrix, const MMatrix& endMatrix)
-		/**
-		Evaluates the angle between the two matrices.
+	/**
+	Evaluates the angle between the two matrices.
 
-		@param startMatrix: The start matrix.
-		@param endMatrix: The end matrix.
-		@return: The angle in radians.
-		*/
+	@param startMatrix: The start matrix.
+	@param endMatrix: The end matrix.
+	@return: The angle in radians.
+	*/
 	{
 
 		MVector startVector = matrixToPosition(startMatrix).normal();
@@ -1393,6 +1614,251 @@ namespace Maxformations
 		breakMatrix(matrix, xAxis, yAxis, zAxis, position);
 
 		return MVector(xAxis.length(), yAxis.length(), zAxis.length());
+
+	};
+
+	float sum(const MFloatArray& items)
+	/**
+	Calculates the sum of all the supplied items.
+
+	@param items: The items to add up.
+	@return: The total sum.
+	*/
+	{
+
+		// Iterate through numbers
+		//
+		unsigned int numItems = items.length();
+		float sum = 0.0;
+
+		for (unsigned int i = 0; i < numItems; i++)
+		{
+
+			sum += items[i];
+
+		}
+
+		return sum;
+
+	};
+
+	unsigned int sum(const MIntArray& items)
+	/**
+	Calculates the sum of all the supplied items.
+
+	@param items: The items to add up.
+	@return: The total sum.
+	*/
+	{
+
+		// Iterate through numbers
+		//
+		unsigned int numItems = items.length();
+		unsigned int sum = 0;
+
+		for (unsigned int i = 0; i < numItems; i++)
+		{
+
+			sum += items[i];
+
+		}
+
+		return sum;
+
+	};
+
+	MFloatArray clamp(const MFloatArray& items)
+	/**
+	Clamps the supplied items so they don't exceed 100.
+	Anything below that is left alone and compensated for using the rest matrix.
+
+	@param items: The float array containing the weighted averages.
+	@return: The newly clamped array of weights.
+	*/
+	{
+
+		// Check if weights require clamping
+		//
+		float sum = Maxformations::sum(items);
+
+		if (sum < 1.0f)
+		{
+
+			return MFloatArray(items);
+
+		}
+
+		// Normalize weights
+		//
+		float fraction = 1.0f / sum;
+
+		unsigned int numItems = items.length();
+		MFloatArray normalizedItems = MFloatArray(numItems);
+
+		for (unsigned int i = 0; i < numItems; i++)
+		{
+
+			normalizedItems[i] = items[i] * fraction;
+
+		}
+
+		return normalizedItems;
+
+	};
+
+	MMatrix blendMatrices(const MMatrix& startMatrix, const MMatrix& endMatrix, const float weight)
+	/**
+	Interpolates the two given matrices using the supplied weight.
+	Both translate and scale will be lerp'd while rotation will be slerp'd.
+
+	@param startMatrix: The start matrix.
+	@param endMatrix: The end matrix.
+	@param weight: The amount to blend.
+	@return: The interpolated matrix.
+	*/
+	{
+
+		MStatus status;
+
+		// Check if matrices are equivalent
+		//
+		bool isEquivalent = startMatrix.isEquivalent(endMatrix);
+
+		if (isEquivalent)
+		{
+
+			return startMatrix;
+
+		}
+
+		// Check matrices require blending
+		//
+		if (0.0f < weight && weight < 1.0f)
+		{
+
+			// Decompose transform matrices
+			//
+			MPoint startPosition, endPosition;
+			MVector startScale, endScale;
+			MQuaternion startRotation, endRotation;
+
+			Maxformations::decomposeMatrix(startMatrix, startPosition, startRotation, startScale);
+			Maxformations::decomposeMatrix(endMatrix, endPosition, endRotation, endScale);
+
+			// Interpolate translation
+			//
+			MPoint translation = Maxformations::lerp(startPosition, endPosition, weight);
+			MQuaternion quat = Maxformations::slerp(startRotation, endRotation, weight);
+			MVector scale = Maxformations::lerp(startScale, endScale, weight);
+
+			// Compose interpolated matrix
+			//
+			MMatrix translateMatrix = Maxformations::createPositionMatrix(translation);
+			MMatrix rotateMatrix = quat.asMatrix();
+			MMatrix scaleMatrix = Maxformations::createScaleMatrix(scale);
+
+			return scaleMatrix * rotateMatrix * translateMatrix;
+
+		}
+		else
+		{
+
+			return (weight == 0.0f) ? startMatrix : endMatrix;
+
+		}
+
+	};
+
+	MMatrix blendMatrices(const MMatrix& restMatrix, const MMatrixArray& matrices, const MFloatArray& weights)
+	/**
+	Interpolates the supplied matrices using the weight array as a blend aplha.
+	The rest matrix is used just in case the weights don't equal 100.
+
+	@param restMatrix: The default matrix to blend from in case the weights don't equal 100.
+	@param matrices: The matrix array to blend.
+	@param weights: The float array containing the weighted averages.
+	@return: The interpolated matrix.
+	*/
+	{
+
+		// Check the number of matrices
+		//
+		unsigned int numMatrices = matrices.length();
+
+		switch (numMatrices)
+		{
+
+			case 0:
+			{
+
+				return MMatrix(restMatrix);
+
+			}
+			break;
+
+			case 1:
+			{
+
+				// Evaluate weight sum
+				//
+				float weightSum = Maxformations::sum(weights);
+
+				if (0.0f < weightSum && weightSum <= 1.0f)
+				{
+
+					return MMatrix(matrices[0]);
+
+				}
+				else
+				{
+
+					return MMatrix(restMatrix);
+
+				}
+
+			}
+			break;
+
+			default:
+			{
+
+				// Evaluate weight sum
+				//
+				MFloatArray normalizedWeights = Maxformations::clamp(weights);
+				float weightSum = Maxformations::sum(normalizedWeights);
+
+				if (0.0f < weightSum && weightSum <= 1.0f)
+				{
+
+					// Lerp through matrices
+					//
+					MMatrix matrix = MMatrix(matrices[0]);
+					unsigned int numMatrices = matrices.length();
+
+					for (unsigned int i = 1; i < numMatrices; i++)
+					{
+
+						matrix = Maxformations::blendMatrices(matrix, matrices[i], normalizedWeights[i]);
+
+					}
+
+					return matrix;
+
+				}
+				else
+				{
+
+					return MMatrix(restMatrix);
+
+				}
+				
+
+			}
+			break;
+
+		}
+
+		return MMatrix::identity;
 
 	};
 
@@ -2068,7 +2534,7 @@ namespace Maxformations
 		else
 		{
 
-			// Get source plug
+			// Disconnect plug from source
 			//
 			MPlug source = plug.source(&status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -2081,6 +2547,13 @@ namespace Maxformations
 
 				status = disconnectPlugs(source, plug);
 				CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			}
+
+			// Transfer connection to other plug
+			//
+			if (source != otherPlug && !isNull)
+			{
 
 				status = connectPlugs(source, otherPlug, true);
 				CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -2138,6 +2611,57 @@ namespace Maxformations
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		plug.destructHandle(dataHandle);
+
+		return status;
+
+	};
+
+	MStatus getAttributesByCategory(const MTypeId& id, const MString category, MObjectArray& attributes)
+	/**
+	Returns a list of attributes with the specified category from the associated type ID.
+
+	@param id: The type ID to search from.
+	@param category: The attribute category to filter.
+	@param attributes: The passed array to populate.
+	@return: Return status.
+	*/
+	{
+
+		MStatus status;
+
+		// Iterate through attributes
+		//
+		MNodeClass nodeClass = MNodeClass(id);
+		unsigned int attributeCount = nodeClass.attributeCount();
+
+		status = attributes.clear();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MFnAttribute fnAttribute;
+		bool hasCategory;
+
+		for (unsigned int i = 0; i < attributeCount; i++)
+		{
+
+			status = fnAttribute.setObject(nodeClass.attribute(i, &status));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			hasCategory = fnAttribute.hasCategory(category);
+
+			if (hasCategory)
+			{
+
+				attributes.append(fnAttribute.object());
+
+			}
+			else
+			{
+
+				continue;
+
+			}
+
+		}
 
 		return status;
 

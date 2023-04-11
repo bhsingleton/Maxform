@@ -33,6 +33,7 @@
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDGContext.h>
+#include <maya/MDGContextGuard.h>
 #include <maya/MAnimControl.h>
 #include <maya/MFileIO.h>
 #include <maya/MTypeId.h> 

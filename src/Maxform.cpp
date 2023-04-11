@@ -65,7 +65,7 @@ Only these values should be used when performing computations!
 
 		// Compute local transformation matrix
 		//
-		MPxTransformationMatrix* transform = this->transformationMatrixPtr();
+		Matrix3* transform = this->matrix3Ptr();
 
 		status = this->computeLocalTransformation(transform, data);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -78,7 +78,7 @@ Only these values should be used when performing computations!
 	else if (isMatrixPart)
 	{
 
-		// Get transform value
+		// Get transformation matrix
 		//
 		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -151,12 +151,8 @@ The caller needs to allocate space for the passed transformation matrix.
 
 	// Check if matrix3 has been enabled
 	//
-	if (this->matrix3Enabled)
+	if (matrix3->isEnabled())
 	{
-
-		// Ensure matrix3 is enabled
-		//
-		matrix3->enable();
 
 		// Get input data handles
 		//
@@ -188,10 +184,6 @@ The caller needs to allocate space for the passed transformation matrix.
 	}
 	else
 	{
-
-		// Disable matrix3
-		//
-		matrix3->disable();
 
 		// Call parent function
 		//
@@ -241,7 +233,7 @@ Provide node-specific setup info for the Cached Playback system.
 
 	// Append attributes for monitoring
 	//
-	monitoredAttributes.append(Maxform::transform);
+	//monitoredAttributes.append(Maxform::transform);
 
 };
 
@@ -271,21 +263,15 @@ If you have specialty code that calls this method directly you'll have to ensure
 
 		// Recompute local transformation matrix
 		//
-		status = this->updateMatrixAttrs();
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
+		MDGContextGuard contextGuard(MDGContext::current());
 		MDataBlock data = this->forceCache();
+
 		MPxTransformationMatrix* transform = this->transformationMatrixPtr();
 
 		status = this->computeLocalTransformation(transform, data);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		status = data.setClean(plug);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		// Mark matrix as dirty 
-		//
-		status = this->dirtyMatrix();
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		return MS::kSuccess;
@@ -326,7 +312,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (attribute == Maxform::transform && !asSrc)
 	{
 
-		this->matrix3Enabled = true;
+		this->matrix3Ptr()->enable();
+
+		status = this->dirtyMatrix();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	}
 	else;
@@ -358,7 +347,10 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (attribute == Maxform::transform && !asSrc)
 	{
 
-		this->matrix3Enabled = false;
+		this->matrix3Ptr()->disable();
+
+		status = this->dirtyMatrix();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	}
 	else;

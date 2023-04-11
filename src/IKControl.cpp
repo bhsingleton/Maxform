@@ -76,7 +76,7 @@ Only these values should be used when performing computations!
 		MDataHandle valueHandle = data.outputValue(IKControl::value, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		status = valueHandle.setMObject(subControlHandle.data());
+		status = valueHandle.copy(subControlHandle);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Mark plug as clean
@@ -93,6 +93,35 @@ Only these values should be used when performing computations!
 		return MS::kUnknownParameter;
 
 	}
+
+};
+
+
+void IKControl::getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const
+/**
+Provide node-specific setup info for the Cached Playback system.
+
+@param evaluationNode: This node's evaluation node, contains animated plug information.
+@param disablingInfo: Information about why the node disables Cached Playback to be reported to the user.
+@param cacheSetupInfo: Preferences and requirements this node has for Cached Playback.
+@param monitoredAttributes: Attributes impacting the behavior of this method that will be monitored for change.
+@return: void.
+*/
+{
+
+	// Call parent function
+	//
+	MPxNode::getCacheSetup(evaluationNode, disablingInfo, cacheSetupInfo, monitoredAttributes);
+	assert(!disablingInfo.getCacheDisabled());
+
+	// Update caching preference
+	//
+	cacheSetupInfo.setPreference(MNodeCacheSetupInfo::kWantToCacheByDefault, true);
+
+	// Append attributes for monitoring
+	//
+	monitoredAttributes.append(IKControl::ikSubControl);
+	monitoredAttributes.append(IKControl::fkSubControl);
 
 };
 

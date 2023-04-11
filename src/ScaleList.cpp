@@ -46,8 +46,8 @@ Constructor.
 {
 	
 	this->prs = nullptr;
-	this->previousIndex = 0;
-	this->activeIndex = 0;
+	this->previousIndex = -1;
+	this->activeIndex = -1;
 
 };
 
@@ -230,32 +230,35 @@ Another use for this method is to impose attribute limits.
 
 	MStatus status;
 
-	// Inspect plug attribute
+	// Evaluate plug
 	//
-	bool isSceneLoading = Maxformations::isSceneLoading();
-
-	if (plug == ScaleList::active && !isSceneLoading)
+	if (plug == ScaleList::active)
 	{
 
-		// Check if index is in range
-		//
-		MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
+		// Check is scene being loaded
+		// 
+		bool isSceneLoading = Maxformations::isSceneLoading();
 
-		unsigned int numElements = listPlug.numElements();
-		CHECK_MSTATUS_AND_RETURN(status, false);
+		if (isSceneLoading)
+		{
 
-		this->activeIndex = Maxformations::clamp(handle.asInt(), 0, (int)(numElements - 1));
-		this->updateActiveController();
+			// Cache active indices
+			//
+			this->previousIndex = this->activeIndex = handle.asShort();
+
+		}
+		else
+		{
+
+			// Update active controller
+			//
+			this->activeIndex = handle.asInt();
+			this->updateActiveController();
+
+		}
+
 
 	}
-	else if (plug == ScaleList::active && isSceneLoading)
-	{
-
-		// Cache active indices
-		this->previousIndex = this->activeIndex = handle.asShort();
-
-	}
-	else;
 
 	return MPxNode::setInternalValue(plug, handle);
 
@@ -271,14 +274,11 @@ Updates the active controller.
 */
 {
 
-	MStatus status;
-
 	// Redundancy check
 	//
 	Maxform* maxform = this->maxformPtr();
-	bool isSceneLoading = Maxformations::isSceneLoading();
 
-	if (this->previousIndex == this->activeIndex || maxform == nullptr || isSceneLoading)
+	if (this->previousIndex == this->activeIndex || maxform == nullptr)
 	{
 
 		return MS::kSuccess;  // Nothing to do here~!
@@ -287,11 +287,16 @@ Updates the active controller.
 
 	// Transfer connections
 	//
-	this->pullController(this->previousIndex);
-	this->pushController(this->activeIndex);
+	MStatus pullStatus = this->pullController(this->previousIndex);
+	MStatus pushStatus = this->pushController(this->activeIndex);
 
-	MGlobal::displayInfo("Updated active scale controller!");
-	this->previousIndex = this->activeIndex;
+	if (pullStatus || pushStatus)
+	{
+
+		MGlobal::displayInfo("Updated active scale controller!");
+		this->previousIndex = this->activeIndex;
+
+	}
 
 	return MS::kSuccess;
 
@@ -320,22 +325,40 @@ Transfers any connections from the associated maxform back to the specified inde
 
 	}
 
-	// Get scale plugs
+	// Check if active index is in range
 	//
-	MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
-
 	MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
-	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(ScaleList::scale);
 
-	// Transfer connections to controller
-	//
-	status = Maxformations::breakConnections(controllerPlug, true, false);
+	unsigned int numElements = listPlug.numElements(&status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = Maxformations::transferConnections(scalePlug, controllerPlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (0 <= index && index < numElements)
+	{
 
-	return status;
+		// Get required plugs
+		//
+		MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::rotate);
+
+		MPlug listElement = listPlug.elementByLogicalIndex(index);
+		MPlug scaleElement = listElement.child(ScaleList::scale);
+
+		// Pull scale connections from maxform
+		//
+		status = Maxformations::breakConnections(scaleElement, true, false);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = Maxformations::transferConnections(scalePlug, scaleElement);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		return status;
+
+	}
+	else
+	{
+
+		return MS::kNotFound;
+
+	}
 
 };
 
@@ -362,25 +385,43 @@ Transfers any connections from the specified index to the associated maxform.
 
 	}
 
-	// Get scale plugs
+	// Check if active index is in range
 	//
-	MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::scale);
-
 	MPlug listPlug = MPlug(this->thisMObject(), ScaleList::list);
-	MPlug controllerPlug = listPlug.elementByLogicalIndex(index).child(ScaleList::scale);
 
-	// Update controller connections
-	//
-	status = Maxformations::transferValues(controllerPlug, scalePlug);
+	unsigned int numElements = listPlug.numElements(&status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = Maxformations::transferConnections(controllerPlug, scalePlug);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (0 <= index && index < numElements)
+	{
 
-	status = Maxformations::connectPlugs(scalePlug, controllerPlug, true);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+		// Get required plugs
+		//
+		MPlug scalePlug = MPlug(maxform->thisMObject(), Maxform::scale);
 
-	return status;
+		MPlug listElement = listPlug.elementByLogicalIndex(index);
+		MPlug scaleElement = listElement.child(ScaleList::scale);
+
+		// Push scale connections to maxform
+		//
+		status = Maxformations::transferValues(scaleElement, scalePlug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = Maxformations::transferConnections(scaleElement, scalePlug);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		status = Maxformations::connectPlugs(scalePlug, scaleElement, true);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		return status;
+
+	}
+	else
+	{
+
+		return MS::kNotFound;
+
+	}
 
 };
 
@@ -547,7 +588,7 @@ Returns the weighted average from the supplied array data handle.
 		// Get values from handles
 		//
 		name = nameHandle.asString();
-		weight = weightHandle.asFloat();
+		weight = Maxformations::clamp(weightHandle.asFloat(), -1.0f, 1.0f);
 		absolute = absoluteHandle.asBool();
 		scaleX = scaleXHandle.asDouble();
 		scaleY = scaleYHandle.asDouble();

@@ -36,6 +36,7 @@ public:
 
 	virtual	MQuaternion					preRotation() const override;
 	virtual	MMatrix						asMatrix() const override;
+	virtual	MMatrix						asTranslateMatrix() const;
 	virtual	MMatrix						asRotateMatrix() const override;
 	virtual	MMatrix						asScaleMatrix() const override;
 	virtual	MTransformationMatrix		asTransformationMatrix() const override;

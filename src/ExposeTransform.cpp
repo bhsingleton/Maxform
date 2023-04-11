@@ -88,7 +88,7 @@ Only these values should be used when performing computations!
 	if (fnAttribute.hasCategory(ExposeTransform::exposeCategory))
 	{
 
-		// Edit datablock context if enabled
+		// Evaluate user context
 		//
 		MDataHandle useTimeOffsetHandle = data.inputValue(ExposeTransform::useTimeOffset, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -98,26 +98,55 @@ Only these values should be used when performing computations!
 
 		bool useTimeOffset = useTimeOffsetHandle.asBool();
 		MTime timeOffset = timeOffsetHandle.asTime();
+		bool isContextNormal = data.context().isNormal();
 
-		if (useTimeOffset)
+		MMatrix exposeMatrix, localReferenceMatrix;
+
+		if (useTimeOffset && isContextNormal)
 		{
 
+			// Cache data block at requested time
+			//
 			MTime currentTime = MAnimControl::currentTime();
 			MDGContext context = MDGContext(currentTime + timeOffset);
+			MDGContextGuard contextGuard(context);
 
-			status = data.setContext(context);
+			MDataBlock otherData = this->forceCache();
+
+			// Get input data handles
+			//
+			MDataHandle exposeMatrixHandle = otherData.inputValue(ExposeTransform::exposeMatrix, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			MDataHandle localReferenceMatrixHandle = otherData.inputValue(ExposeTransform::localReferenceMatrix, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			// Get values from handles
+			//
+			exposeMatrix = exposeMatrixHandle.asMatrix();
+			localReferenceMatrix = localReferenceMatrixHandle.asMatrix();
+
+		}
+		else
+		{
+
+			// Get input data handles
+			//
+			MDataHandle exposeMatrixHandle = data.inputValue(ExposeTransform::exposeMatrix, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			MDataHandle localReferenceMatrixHandle = data.inputValue(ExposeTransform::localReferenceMatrix, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			// Get values from handles
+			//
+			exposeMatrix = exposeMatrixHandle.asMatrix();
+			localReferenceMatrix = localReferenceMatrixHandle.asMatrix();
 
 		}
 
 		// Get input data handles
 		//
-		MDataHandle exposeMatrixHandle = data.inputValue(ExposeTransform::exposeMatrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle localReferenceMatrixHandle = data.inputValue(ExposeTransform::localReferenceMatrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
 		MDataHandle eulerXOrderHandle = data.inputValue(ExposeTransform::eulerXOrder, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -132,9 +161,6 @@ Only these values should be used when performing computations!
 
 		// Get values from handles
 		//
-		MMatrix exposeMatrix = exposeMatrixHandle.asMatrix();
-		MMatrix localReferenceMatrix = localReferenceMatrixHandle.asMatrix();
-
 		Maxformations::AxisOrder eulerXOrder = Maxformations::AxisOrder(eulerXOrderHandle.asShort());
 		Maxformations::AxisOrder eulerYOrder = Maxformations::AxisOrder(eulerYOrderHandle.asShort());
 		Maxformations::AxisOrder eulerZOrder = Maxformations::AxisOrder(eulerZOrderHandle.asShort());
@@ -1012,6 +1038,24 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::eulerXOrder, ExposeTransform::worldEulerX));
 	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::eulerYOrder, ExposeTransform::worldEulerY));
 	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::eulerZOrder, ExposeTransform::worldEulerZ));
+
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::stripNUScale, ExposeTransform::localEuler));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::stripNUScale, ExposeTransform::worldEuler));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::stripNUScale, ExposeTransform::angle));
+
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::useTimeOffset, ExposeTransform::localPosition));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::useTimeOffset, ExposeTransform::worldPosition));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::useTimeOffset, ExposeTransform::localEuler));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::useTimeOffset, ExposeTransform::worldEuler));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::useTimeOffset, ExposeTransform::distance));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::useTimeOffset, ExposeTransform::angle));
+
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::timeOffset, ExposeTransform::localPosition));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::timeOffset, ExposeTransform::worldPosition));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::timeOffset, ExposeTransform::localEuler));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::timeOffset, ExposeTransform::worldEuler));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::timeOffset, ExposeTransform::distance));
+	CHECK_MSTATUS(ExposeTransform::attributeAffects(ExposeTransform::timeOffset, ExposeTransform::angle));
 
 	return status;
 

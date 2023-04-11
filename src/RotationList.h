@@ -105,10 +105,6 @@ public:
 
 	static	MTypeId			id;
 	
-public:
-
-
-
 protected:
 			
 			PRS*			prs;

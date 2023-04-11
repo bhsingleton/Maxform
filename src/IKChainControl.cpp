@@ -80,7 +80,7 @@ Only these values should be used when performing computations!
 		MDataHandle valueHandle = data.outputValue(IKChainControl::value, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		
-		valueHandle.setMObject(ikGoalHandle.data());
+		valueHandle.copy(ikGoalHandle);
 
 		// Mark plug as clean
 		//
@@ -196,14 +196,17 @@ Only these values should be used when performing computations!
 
 			// Localize solution back into parent space
 			//
+			MMatrixArray offsetMatrices = MMatrixArray(numJoints);
 			MMatrixArray matrices = MMatrixArray(numJoints);
 			MMatrix parentMatrix;
 
 			for (unsigned int i = 0; i < numJoints; i++)
 			{
 
-				parentMatrix = (i == 0) ? jointParentMatrix : worldMatrices[i - 1];
-				matrices[i] = (joints[i].offsetRotation.asMatrix() * worldMatrices[i]) * parentMatrix.inverse();
+				offsetMatrices[i] = joints[i].offsetRotation.asMatrix() * worldMatrices[i];
+				parentMatrix = (i == 0) ? jointParentMatrix : offsetMatrices[i - 1];
+
+				matrices[i] = offsetMatrices[i] * parentMatrix.inverse();
 
 			}
 
@@ -493,7 +496,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	MVector yAxis = (zAxis ^ xAxis).normal();
 
 	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
-	MMatrix aimMatrix = swivelMatrix * Maxformations::createMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
+	MMatrix aimMatrix = swivelMatrix * Maxformations::composeMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
 
 	// Populate matrix array
 	//
@@ -580,7 +583,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	MVector yAxis = (zAxis ^ xAxis).normal();
 
 	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
-	MMatrix twistMatrix = swivelMatrix * Maxformations::createMatrix(xAxis, yAxis, zAxis, MPoint(origin));
+	MMatrix twistMatrix = swivelMatrix * Maxformations::composeMatrix(xAxis, yAxis, zAxis, MPoint(origin));
 
 	// Compose matrices
 	//

@@ -49,9 +49,14 @@ Assignment operator.
 */
 {
 
-	this->translateTo(src.translation());
-	this->rotateTo(src.eulerRotation());
-	this->scaleTo(src.scale());
+	MMatrix matrix = src.asMatrix();
+	MVector translation = Maxformations::matrixToPosition(matrix);
+	MEulerRotation eulerRotation = Maxformations::matrixToEulerRotation(matrix, this->rotationOrder());
+	MVector scale = Maxformations::matrixToScale(matrix);
+
+	this->translateTo(translation);
+	this->rotateTo(eulerRotation);
+	this->scaleTo(scale);
 
 	return *this;
 
@@ -92,7 +97,6 @@ Assignment operator.
 
 	MVector translation = src.getTranslation(MSpace::kTransform);
 	MEulerRotation eulerRotation = src.eulerRotation();
-
 	double3 scale;
 	MStatus status = src.getScale(scale, MSpace::kTransform);
 
@@ -171,6 +175,19 @@ Returns the four by four matrix that describes this transformation.
 		
 	}
 	
+};
+
+
+MMatrix Matrix3::asTranslateMatrix() const
+/**
+Returns the rotate section of the transformation matrix.
+
+@return: The rotate matrix.
+*/
+{
+
+	return Maxformations::createPositionMatrix(this->asMatrix());
+
 };
 
 

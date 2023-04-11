@@ -15,6 +15,11 @@
 #include "PositionList.h"
 #include "RotationList.h"
 #include "ScaleList.h"
+#include "PositionConstraint.h"
+#include "OrientationConstraint.h"
+#include "LookAtConstraint.h"
+#include "PathConstraint.h"
+#include "AttachmentConstraint.h"
 
 #include <maya/MFnPlugin.h>
 
@@ -58,6 +63,21 @@ MStatus initializePlugin(MObject obj)
 	status = plugin.registerNode("scaleList", ScaleList::id, ScaleList::creator, ScaleList::initialize);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.registerNode("positionConstraint", PositionConstraint::id, PositionConstraint::creator, PositionConstraint::initialize, MPxNode::kConstraintNode);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("orientationConstraint", OrientationConstraint::id, OrientationConstraint::creator, OrientationConstraint::initialize, MPxNode::kConstraintNode);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("lookAtConstraint", LookAtConstraint::id, LookAtConstraint::creator, LookAtConstraint::initialize, MPxNode::kConstraintNode);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("pathConstraint", PathConstraint::id, PathConstraint::creator, PathConstraint::initialize, MPxNode::kConstraintNode);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode("attachmentConstraint", AttachmentConstraint::id, AttachmentConstraint::creator, AttachmentConstraint::initialize, MPxNode::kConstraintNode);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	return status;
 
 }
@@ -99,6 +119,21 @@ MStatus uninitializePlugin(MObject obj)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.deregisterNode(ScaleList::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(PositionConstraint::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(OrientationConstraint::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(LookAtConstraint::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(PathConstraint::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(AttachmentConstraint::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;

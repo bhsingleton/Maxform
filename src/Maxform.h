@@ -30,6 +30,8 @@
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnNumericData.h>
+#include <maya/MDGContext.h>
+#include <maya/MDGContextGuard.h>
 #include <maya/MEvaluationNode.h>
 #include <maya/MNodeCacheDisablingInfo.h>
 #include <maya/MNodeCacheSetupInfo.h>
