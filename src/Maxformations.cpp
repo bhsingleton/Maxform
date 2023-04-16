@@ -756,10 +756,10 @@ namespace Maxformations
 
 	MMatrixArray staggerMatrices(const MMatrixArray& matrices)
 	/**
-	Returns an array matrices where each matrix is converted to local space using the preceding matrix as the parent space.
+	Returns staggered matrices where each matrix is converted to local space using the preceding matrix as its parent space.
 
 	@param matrices: The matrices to stagger.
-	@return: The converted matrices.
+	@return: The matrices in local space.
 	*/
 	{
 		
@@ -770,6 +770,29 @@ namespace Maxformations
 		{
 
 			newMatrices[i] = matrices[i] * matrices[i - 1].inverse();
+
+		}
+
+		return newMatrices;
+
+	};
+
+	MMatrixArray expandMatrices(const MMatrixArray& matrices)
+	/**
+	Returns expanded matrices where each matrix is converted to world space using the preceding matrix as its parent space.
+
+	@param matrices: The matrices to stagger.
+	@return: The matrices in world space.
+	*/
+	{
+
+		MMatrixArray newMatrices = MMatrixArray(matrices);
+		unsigned int numMatrices = newMatrices.length();
+
+		for (unsigned int i = 1; i < numMatrices; i++)  // Skip the first item!
+		{
+
+			newMatrices[i] = matrices[i] * newMatrices[i - 1];
 
 		}
 

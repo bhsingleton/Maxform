@@ -98,25 +98,21 @@ Only these values should be used when performing computations!
 		MDataHandle enabledHandle = data.inputValue(IKChainControl::enabled, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		bool enabled = enabledHandle.asBool();
+		MDataHandle jointParentMatrixHandle = data.inputValue(IKChainControl::jointParentMatrix, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		MArrayDataHandle jointArrayHandle = data.inputArrayValue(IKChainControl::joint, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		std::vector<IKControlSpec> joints = IKChainControl::getJoints(jointArrayHandle);
+		bool enabled = enabledHandle.asBool();
+
+		MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
+		std::vector<IKControlSpec> joints = IKChainControl::getJoints(jointArrayHandle, jointParentMatrix);
+
 		unsigned int numJoints = static_cast<unsigned int>(joints.size());
 
 		if (enabled && numJoints > 0)
 		{
-
-			// Modify transform space on start joint
-			//
-			MDataHandle jointParentMatrixHandle = data.inputValue(IKChainControl::jointParentMatrix, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
-
-			joints[0].matrix *= jointParentMatrix;  // Without this the up-vector can't be calculated properly!
 
 			// Get input handles
 			//
@@ -149,10 +145,8 @@ Only these values should be used when performing computations!
 
 			// Get ik-goal matrix
 			//
-			MMatrix ikGoal = Maxformations::getMatrixData(ikGoalHandle.data());
 			MMatrix ikParentMatrix = Maxformations::getMatrixData(ikParentMatrixHandle.data());
-
-			ikGoal *= ikParentMatrix;
+			MMatrix ikGoal = Maxformations::getMatrixData(ikGoalHandle.data()) * ikParentMatrix;
 
 			// Get ik system settings
 			//
@@ -293,7 +287,7 @@ Only these values should be used when performing computations!
 };
 
 
-std::vector<IKControlSpec> IKChainControl::getJoints(MArrayDataHandle& arrayHandle)
+std::vector<IKControlSpec> IKChainControl::getJoints(MArrayDataHandle& arrayHandle, const MMatrix& parentMatrix)
 /**
 Returns an array of ik-control specs from the supplied array handle.
 
@@ -319,27 +313,60 @@ Returns an array of ik-control specs from the supplied array handle.
 	for (unsigned int i = 0; i < numElements; i++)
 	{
 
+		// Go to array element handle
+		//
 		status = arrayHandle.jumpToArrayElement(i);
 		CHECK_MSTATUS_AND_RETURN(status, joints);
 
 		elementHandle = arrayHandle.inputValue(&status);
 		CHECK_MSTATUS_AND_RETURN(status, joints);
 
+		// Get preferred rotation
+		//
 		preferredRotationHandle = elementHandle.child(IKChainControl::jointPreferredRotation);
 		preferredRotation = MEulerRotation(preferredRotationHandle.asDouble3());
 
+		// Get offset rotation
+		//
 		offsetRotationHandle = elementHandle.child(IKChainControl::jointOffsetRotation);
 		offsetRotation = MEulerRotation(offsetRotationHandle.asDouble3());
 
+		// Get joint's transform matrix
+		//
 		matrixHandle = elementHandle.child(IKChainControl::jointMatrix);
 		matrix = Maxformations::getMatrixData(matrixHandle.data());
 		length = i > 0 ? Maxformations::matrixToPosition(matrix).length() : 0.0;
+
+		if (i == 0)
+		{
+
+			matrix *= parentMatrix;
+
+		}
 
 		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, length };
 
 	}
 
 	return joints;
+
+};
+
+
+MMatrixArray IKChainControl::getMatrices(const std::vector<IKControlSpec>& joints)
+{
+
+	size_t numJoints = joints.size();
+	MMatrixArray matrices = MMatrixArray(numJoints);
+
+	for (size_t i = 0; i < numJoints; i++)
+	{
+
+		matrices[i] = joints[i].matrix;
+
+	}
+
+	return matrices;
 
 };
 
@@ -395,6 +422,8 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 		case 0:
 		{
 
+			// Default to scene up-vector
+			//
 			return Maxformations::getSceneUpVector();
 
 		}
@@ -403,6 +432,8 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 		case 1: case 2:
 		{
 
+			// Use up-axis vector
+			//
 			return upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
 
 		}
@@ -411,11 +442,21 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 		default:
 		{
 
-			MVector startPoint = Maxformations::matrixToPosition(joints[0].matrix);
-			MVector endPoint = Maxformations::matrixToPosition(joints[numJoints - 1].matrix);
+			// Get start and end points
+			//
+			MMatrixArray matrices = IKChainControl::getMatrices(joints);
+			MMatrixArray worldMatrices = Maxformations::expandMatrices(matrices);
 
+			MMatrix startMatrix = worldMatrices[0];
+			MVector startPoint = Maxformations::matrixToPosition(worldMatrices[0]);
+
+			MMatrix endMatrix = worldMatrices[numJoints - 1];
+			MVector endPoint = Maxformations::matrixToPosition(endMatrix);
+			
+			// Compose aim-vector
+			//
 			MVector forwardVector = (endPoint - startPoint).normal();
-			MVector upVector = upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
+			MVector upVector = upAxisFlip ? -MVector(startMatrix[upAxis]) : MVector(startMatrix[upAxis]);
 			MVector rightVector = (forwardVector ^ upVector).normal();
 
 			return (rightVector ^ forwardVector).normal();

@@ -146,6 +146,7 @@ namespace Maxformations
 	void			breakMatrix(const MMatrix& matrix, MVector& xAxis, MVector& yAxis, MVector& zAxis, MPoint& position);
 	MMatrix			normalizeMatrix(const MMatrix& matrix);
 	MMatrixArray	staggerMatrices(const MMatrixArray& matrices);
+	MMatrixArray	expandMatrices(const MMatrixArray& matrices);
 	MStatus			twistMatrices(MMatrixArray& matrices, const int forwardAxis, const MAngle& startTwistAngle, const MAngle& endTwistAngle);
 	MStatus			reorientMatrices(MMatrixArray& matrices, const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip);
 

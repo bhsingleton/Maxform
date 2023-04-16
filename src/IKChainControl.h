@@ -50,7 +50,8 @@ public:
 
 	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 	
-	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle);
+	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle, const MMatrix& parentMatrix);
+	static	MMatrixArray				getMatrices(const std::vector<IKControlSpec>& joints);
 	static	MVector						getUpVector(const MMatrix& startJoint, const MMatrix& vhTarget);
 	static	MVector						guessUpVector(const std::vector<IKControlSpec>& joints, const int upAxis, const bool upAxisFlip);
 
