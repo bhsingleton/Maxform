@@ -19,8 +19,8 @@ MString	IKControl::inputCategory("Input");
 MTypeId	IKControl::id(0x0013b1d0);
 
 
-IKControl::IKControl() : Matrix3Controller() { this->ikEnabled = false; this->prs = nullptr; };
-IKControl::~IKControl() { this->prs = nullptr; };
+IKControl::IKControl() : Matrix3Controller() { this->ikEnabled = false; };
+IKControl::~IKControl() {};
 
 
 MStatus IKControl::compute(const MPlug& plug, MDataBlock& data)
@@ -146,18 +146,15 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (plug == IKControl::fkSubControl && asSrc)
 	{
 
-		// Evaluate if other node is a transform
+		// Evaluate if other node is supported
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isPRS = Maxformations::hasTypeId(otherNode, PRS::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MTypeId typeId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		isLegal = (typeId == PRS::id);
+		isLegal = isPRS;
 
 		return MS::kSuccess;
 
@@ -165,18 +162,18 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	else if (plug == IKControl::ikSubControl && asSrc)
 	{
 
-		// Evaluate if other node is a transform
+		// Evaluate if other node is supported
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isIKChainControl = Maxformations::hasTypeId(otherNode, IKChainControl::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MTypeId typeId = fnDependNode.typeId(&status);
+		bool isSplineIKChainControl = Maxformations::hasTypeId(otherNode, SplineIKChainControl::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = (typeId == IKChainControl::id || typeId == SplineIKChainControl::id);
+		isLegal = (isIKChainControl || isSplineIKChainControl);
 
 		return MS::kSuccess;
 
@@ -207,27 +204,11 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if (plug == IKControl::fkSubControl && !asSrc)
+	if (plug == IKControl::ikSubControl && !asSrc)
 	{
 
-		// Store reference to prs
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		this->prs = static_cast<PRS*>(fnDependNode.userNode(&status));
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		this->prs->registerMasterController(this);
-
-	}
-	else if (plug == IKControl::ikSubControl && !asSrc)
-	{
-
-		// Indicate ik is now enabled
+		// Mark IK as enabled
+		// All computations will be derived from the ik sub-controller!
 		//
 		this->ikEnabled = true;
 
@@ -255,25 +236,11 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if (plug == IKControl::fkSubControl && !asSrc)
+	if (plug == IKControl::ikSubControl && !asSrc)
 	{
 
-		// Cleanup reference to prs
-		//
-		if (this->prs != nullptr)
-		{
-
-			this->prs->deregisterMasterController();
-			this->prs = nullptr;
-
-		}
-
-	}
-	else if (plug == IKControl::ikSubControl && !asSrc)
-	{
-
-		// Indicate ik is now disabled
-		// All computations will now revert back to the fk sub-controller
+		// Mark IK as disabled
+		// All computations will now revert back to the fk sub-controller!
 		//
 		this->ikEnabled = false;
 

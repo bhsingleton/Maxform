@@ -1,5 +1,5 @@
 //
-// File: PositionListNode.cpp
+// File: PositionList.cpp
 //
 // Dependency Graph Node: positionList
 //
@@ -8,59 +8,33 @@
 
 #include "PositionList.h"
 
-MObject		PositionList::active;
-MObject		PositionList::average;
-MObject		PositionList::list;
-MObject		PositionList::name;
-MObject		PositionList::weight;
-MObject		PositionList::absolute;
-MObject		PositionList::position;
-MObject		PositionList::x_position;
-MObject		PositionList::y_position;
-MObject		PositionList::z_position;
+MObject	PositionList::active;
+MObject	PositionList::average;
+MObject	PositionList::list;
+MObject	PositionList::name;
+MObject	PositionList::weight;
+MObject	PositionList::absolute;
+MObject	PositionList::position;
+MObject	PositionList::x_position;
+MObject	PositionList::y_position;
+MObject	PositionList::z_position;
 
-MObject		PositionList::value;
-MObject		PositionList::valueX;
-MObject		PositionList::valueY;
-MObject		PositionList::valueZ;
-MObject		PositionList::preValue;
-MObject		PositionList::preValueX;
-MObject		PositionList::preValueY;
-MObject		PositionList::preValueZ;
-MObject		PositionList::matrix;
-MObject		PositionList::inverseMatrix;
+MObject	PositionList::preValue;
+MObject	PositionList::preValueX;
+MObject	PositionList::preValueY;
+MObject	PositionList::preValueZ;
+MObject	PositionList::matrix;
+MObject	PositionList::inverseMatrix;
 
-MString		PositionList::inputCategory("Input");
-MString		PositionList::outputCategory("Output");
-MString		PositionList::listCategory("List");
-MString		PositionList::positionCategory("Position");
-MString		PositionList::prePositionCategory("PrePosition");
+MString	PositionList::inputCategory("Input");
+MString	PositionList::listCategory("List");
+MString	PositionList::preValueCategory("PreValue");
 
-MTypeId		PositionList::id(0x0013b1c5);
+MTypeId	PositionList::id(0x0013b1c5);
 
 
-PositionList::PositionList()
-/**
-Constructor.
-*/
-{
-	
-	this->prs = nullptr; 
-	this->previousIndex = -1; 
-	this->activeIndex = -1;
-
-};
-
-
-PositionList::~PositionList()
-/**
-Destructor.
-*/
-{
-
-	this->prs = nullptr;
-
-};
+PositionList::PositionList() : PositionController() { this->previousIndex = -1; this->activeIndex = -1; };
+PositionList::~PositionList() {};
 
 
 MStatus PositionList::compute(const MPlug& plug, MDataBlock& data) 
@@ -87,7 +61,10 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (fnAttribute.hasCategory(PositionList::outputCategory))
+	bool isValue = fnAttribute.hasCategory(PositionList::valueCategory);
+	bool isPreValue = fnAttribute.hasCategory(PositionList::preValueCategory);
+
+	if (isValue)
 	{
 		
 		// Get input data handles
@@ -151,7 +128,7 @@ Only these values should be used when performing computations!
 		return MS::kSuccess;
 
 	}
-	else if (fnAttribute.hasCategory(PositionList::prePositionCategory))
+	else if (isPreValue)
 	{
 		
 		// Get input data handle
@@ -229,7 +206,7 @@ Another use for this method is to impose attribute limits.
 {
 
 	MStatus status;
-	
+
 	// Evaluate plug
 	//
 	if (plug == PositionList::active)
@@ -256,11 +233,25 @@ Another use for this method is to impose attribute limits.
 			this->updateActiveController();
 
 		}
-		
+
 
 	}
 
 	return MPxNode::setInternalValue(plug, handle);
+
+};
+
+
+void PositionList::dependentChanged(const MObject& otherNode)
+/**
+Notifies that a dependent of this node has changed.
+
+@param node: The node that is dependent on this controller.
+@return: Void.
+*/
+{
+	
+	this->updateActiveController();
 
 };
 
@@ -274,9 +265,12 @@ Updates the active controller.
 */
 {
 
+	MStatus status;
+
 	// Redundancy check
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (this->previousIndex == this->activeIndex || maxform == nullptr)
 	{
@@ -317,7 +311,8 @@ A `MS::kNotFound` status will be returned if the index is not in range!
 
 	// Check if maxform exists
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (maxform == nullptr)
 	{
@@ -378,7 +373,8 @@ A `MS::kNotFound` status will be returned if the index is not in range!
 
 	// Check if maxform exists
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (maxform == nullptr)
 	{
@@ -424,109 +420,6 @@ A `MS::kNotFound` status will be returned if the index is not in range!
 		return MS::kNotFound;
 
 	}
-
-};
-
-
-MStatus PositionList::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isOutput = fnAttribute.hasCategory(PositionList::outputCategory);
-
-	if ((isOutput && asSrc) && this->prs == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == PRS::id)
-		{
-
-			this->prs = static_cast<PRS*>(fnDependNode.userNode(&status));
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			this->updateActiveController();
-
-		}
-
-	}
-
-	return MPxNode::connectionMade(plug, otherPlug, asSrc);
-
-};
-
-
-MStatus PositionList::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isOutput = fnAttribute.hasCategory(PRS::valueCategory);
-
-	if ((isOutput && asSrc) && this->prs != nullptr)
-	{
-
-		// Check if plug is still partially connected
-		//
-		MPlug positionPlug = MPlug(this->prs->thisMObject(), PRS::position);
-
-		bool isPartiallyConnected = Maxformations::isPartiallyConnected(positionPlug, true, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (!isPartiallyConnected)
-		{
-
-			this->prs = nullptr;
-
-		}
-		
-	}
-
-	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 
@@ -741,29 +634,18 @@ Normalizes the passed weights so that the total sum equals 1.0.
 };
 
 
-Maxform* PositionList::maxformPtr()
+bool PositionList::isAbstractClass() const
 /**
-Returns the maxform node associated with this list controller.
-If no maxform node exists then a null pointer is returned instead!
+Override this class to return true if this node is an abstract node.
+An abstract node can only be used as a base class. It cannot be created using the 'createNode' command.
 
-@return: Maxform pointer.
+@return: True if the node is abstract.
 */
 {
 
-	if (this->prs != nullptr)
-	{
+	return false;
 
-		return this->prs->maxformPtr();
-
-	}
-	else
-	{
-
-		return nullptr;
-
-	}
-
-}
+};
 
 
 void* PositionList::creator() 
@@ -850,7 +732,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::listCategory));
 
 	// ".y_position" attribute
@@ -860,7 +741,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::listCategory));
 
 	// ".z_position" attribute
@@ -870,7 +750,6 @@ Use this function to define any static attributes.
 	
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::listCategory));
 
 	// ".translate" attribute
@@ -879,7 +758,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::positionCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::listCategory));
 
 	// ".list" attribute
@@ -896,42 +774,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnCompoundAttr.addToCategory(PositionList::listCategory));
 
 	// Output attributes:
-	// ".valueX" attribute
-	//
-	PositionList::valueX = fnUnitAttr.create("valueX", "vx", MFnUnitAttribute::kDistance, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
-	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::outputCategory));
-
-	// ".valueY" attribute
-	//
-	PositionList::valueY = fnUnitAttr.create("valueY", "vy", MFnUnitAttribute::kDistance, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
-	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::outputCategory));
-
-	// ".valueZ" attribute
-	//
-	PositionList::valueZ = fnUnitAttr.create("valueZ", "vz", MFnUnitAttribute::kDistance, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
-	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::outputCategory));
-
-	// ".value" attribute
-	//
-	PositionList::value = fnNumericAttr.create("value", "v", PositionList::valueX, PositionList::valueY, PositionList::valueZ, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::outputCategory));
-
 	// ".preValueX" attribute
 	//
 	PositionList::preValueX = fnUnitAttr.create("preValueX", "pvx", MFnUnitAttribute::kDistance, 0.0, &status);
@@ -939,7 +781,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
 	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::prePositionCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::preValueCategory));
 
 	// ".preValueY" attribute
 	//
@@ -948,7 +790,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
 	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::prePositionCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::preValueCategory));
 
 	// ".preValueZ" attribute
 	//
@@ -957,7 +799,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
 	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::prePositionCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PositionList::preValueCategory));
 
 	// ".preValue" attribute
 	//
@@ -966,7 +808,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
 	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::prePositionCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PositionList::preValueCategory));
 
 	// ".matrix" attribute
 	//
@@ -975,7 +817,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(PositionList::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(PositionList::valueCategory));
 
 	// ".inverseMatrix" attribute
 	//
@@ -984,7 +826,12 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(PositionList::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(PositionList::valueCategory));
+
+	// Inherit attribute from parent class
+	//
+	status = PositionList::inheritAttributesFrom("positionController");
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Add attributes to node
 	//
@@ -992,7 +839,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(PositionList::addAttribute(PositionList::average));
 	CHECK_MSTATUS(PositionList::addAttribute(PositionList::list));
 
-	CHECK_MSTATUS(PositionList::addAttribute(PositionList::value));
 	CHECK_MSTATUS(PositionList::addAttribute(PositionList::preValue));
 	CHECK_MSTATUS(PositionList::addAttribute(PositionList::matrix));
 	CHECK_MSTATUS(PositionList::addAttribute(PositionList::inverseMatrix));

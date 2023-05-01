@@ -40,8 +40,8 @@ MString	SplineIKChainControl::goalCategory("Goal");
 MTypeId	SplineIKChainControl::id(0x0013b1d3);
 
 
-SplineIKChainControl::SplineIKChainControl() : Matrix3Controller() { this->prs = nullptr; };
-SplineIKChainControl::~SplineIKChainControl() { this->prs = nullptr; };
+SplineIKChainControl::SplineIKChainControl() : Matrix3Controller() {};
+SplineIKChainControl::~SplineIKChainControl() {};
 
 
 MStatus SplineIKChainControl::compute(const MPlug& plug, MDataBlock& data)
@@ -735,15 +735,15 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if (plug == SplineIKChainControl::ikGoal && asSrc)
 	{
 
-		// Evaluate if other node is a `prs` node
+		// Evaluate if other node is supported
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isPRS = Maxformations::hasTypeId(otherNode, PRS::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = fnDependNode.typeId() == PRS::id;
+		isLegal = isPRS;
 
 		return MS::kSuccess;
 
@@ -751,15 +751,15 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	else if ((plug == SplineIKChainControl::jointMatrix || (plug == SplineIKChainControl::jointPreferredRotationX || plug == SplineIKChainControl::jointPreferredRotationY || plug == SplineIKChainControl::jointPreferredRotationZ)) && asSrc)
 	{
 
-		// Evaluate if other node is a `ikControl` node
+		// Evaluate if other node is supported
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isIKControl = Maxformations::hasTypeId(otherNode, IKControl::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		isLegal = fnDependNode.typeId() == IKControl::id;
+		isLegal = isIKControl;
 
 		return MS::kSuccess;
 
@@ -770,81 +770,6 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		return MPxNode::legalConnection(plug, otherPlug, asSrc, isLegal);
 
 	}
-
-};
-
-
-MStatus SplineIKChainControl::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	if ((plug == SplineIKChainControl::ikGoal && !asSrc) && otherPlug == PRS::value)
-	{
-
-		// Store reference to prs
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		this->prs = static_cast<PRS*>(fnDependNode.userNode());
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		this->prs->registerMasterController(this);
-
-	}
-
-	return MPxNode::connectionMade(plug, otherPlug, asSrc);
-
-};
-
-
-MStatus SplineIKChainControl::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	if ((plug == SplineIKChainControl::ikGoal && !asSrc) && otherPlug == PRS::value)
-	{
-
-		// Cleanup reference to prs
-		//
-		if (this->prs != nullptr)
-		{
-
-			this->prs->deregisterMasterController();
-			this->prs = nullptr;
-
-		}
-
-	}
-	
-	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 

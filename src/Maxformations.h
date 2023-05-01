@@ -153,7 +153,7 @@ namespace Maxformations
 	MVector			matrixToPosition(const MMatrix& matrix);
 
 	MEulerRotation::RotationOrder	axisToRotationOrder(const AxisOrder axisOrder);
-	AxisOrder		rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
+	AxisOrder						rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
 
 	MVector			matrixToEulerXYZ(const MMatrix& matrix);
 	MVector			matrixToEulerXZY(const MMatrix& matrix);
@@ -187,9 +187,9 @@ namespace Maxformations
 	MDistance		distanceBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 	MAngle			angleBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 
-	MObject			createMatrixData(const MMatrix& matrix);
-	MObject			createMatrixData(const MTransformationMatrix& transform);
-	MMatrix			getMatrixData(const MObject& matrixData);
+	MObject					createMatrixData(const MMatrix& matrix);
+	MObject					createMatrixData(const MTransformationMatrix& transform);
+	MMatrix					getMatrixData(const MObject& matrixData);
 	MTransformationMatrix	getTransformData(const MObject& matrixData);
 
 	MStatus			resetMatrixPlug(MPlug& plug);
@@ -205,6 +205,8 @@ namespace Maxformations
 	MStatus			transferValues(MPlug& plug, MPlug& otherPlug);
 
 	MStatus			getAttributesByCategory(const MTypeId& id, const MString category, MObjectArray& attributes);
+	bool			hasClassification(const MObject& node, const MString& classification, MStatus* status);
+	bool			hasTypeId(const MObject& node, const MTypeId& typeId, MStatus* status);
 
 	bool			isSceneLoading();
 	MVector			getSceneUpVector();

@@ -1956,9 +1956,28 @@ namespace Maxformations
 		MFnMatrixData fnMatrixData(matrixData, &status);
 		CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
 
-		MMatrix matrix = fnMatrixData.matrix(&status);
+		bool isTransformation = fnMatrixData.isTransformation(&status);
 		CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
 
+		MMatrix matrix;
+
+		if (isTransformation)
+		{
+
+			MTransformationMatrix transformationMatrix = fnMatrixData.transformation(&status);
+			CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
+
+			matrix = transformationMatrix.asMatrix();
+
+		}
+		else
+		{
+
+			matrix = fnMatrixData.matrix(&status);
+			CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
+
+		}
+		
 		return matrix;
 
 	};
@@ -1978,8 +1997,27 @@ namespace Maxformations
 		MFnMatrixData fnMatrixData(matrixData, &status);
 		CHECK_MSTATUS_AND_RETURN(status, MTransformationMatrix::identity);
 
-		MTransformationMatrix transformationMatrix = fnMatrixData.transformation(&status);
+		bool isTransformation = fnMatrixData.isTransformation(&status);
 		CHECK_MSTATUS_AND_RETURN(status, MTransformationMatrix::identity);
+
+		MTransformationMatrix transformationMatrix;
+
+		if (isTransformation)
+		{
+
+			transformationMatrix = fnMatrixData.transformation(&status);
+			CHECK_MSTATUS_AND_RETURN(status, MTransformationMatrix::identity);
+
+		}
+		else
+		{
+
+			MMatrix matrix = fnMatrixData.matrix(&status);
+			CHECK_MSTATUS_AND_RETURN(status, MMatrix::identity);
+
+			transformationMatrix = MTransformationMatrix(matrix);
+
+		}
 
 		return transformationMatrix;
 
@@ -2687,6 +2725,50 @@ namespace Maxformations
 		}
 
 		return status;
+
+	};
+
+	bool hasClassification(const MObject& node, const MString& classification, MStatus* status)
+	/**
+	Evaluates if the supplied node has the specified classification.
+
+	@param node: The node to evaluate.
+	@param classification: The classification to test against.
+	@param status: Return status.
+	@return: Has classification.
+	*/
+	{
+
+		MFnDependencyNode fnNode(node, status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		MString typeName = fnNode.typeName(status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		MString nodeClassification = MFnDependencyNode::classification(typeName);
+		
+		return classification == nodeClassification;
+
+	};
+
+	bool hasTypeId(const MObject& node, const MTypeId& typeId, MStatus* status)
+	/**
+	Evaluates if the supplied node has the specified type ID.
+
+	@param node: The node to evaluate.
+	@param classification: The type ID to test against.
+	@param status: Return status.
+	@return: Has type ID.
+	*/
+	{
+
+		MFnDependencyNode fnNode(node, status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		MTypeId nodeTypeId = fnNode.typeId(status);
+		CHECK_MSTATUS_AND_RETURN(*status, false);
+
+		return typeId == nodeTypeId;
 
 	};
 

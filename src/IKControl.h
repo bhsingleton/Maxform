@@ -84,8 +84,6 @@ public:
 protected:
 
 			bool		ikEnabled;
-			PRS*		prs;
 
 };
-
 #endif

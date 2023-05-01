@@ -12,8 +12,12 @@
 #include "IKChainControl.h"
 #include "SplineIKChainControl.h"
 #include "IKControl.h"
+#include "PositionController.h"
 #include "PositionList.h"
+#include "SpringPosition.h"
+#include "RotationController.h"
 #include "RotationList.h"
+#include "ScaleController.h"
 #include "ScaleList.h"
 #include "PositionConstraint.h"
 #include "OrientationConstraint.h"
@@ -39,30 +43,42 @@ MStatus initializePlugin(MObject obj)
 	status = plugin.registerTransform("exposeTm", ExposeTransform::id, ExposeTransform::creator, ExposeTransform::initialize, Matrix3::creator, Matrix3::id, &ExposeTransform::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("matrix3Controller", Matrix3Controller::id, Matrix3Controller::creator, Matrix3Controller::initialize);
+	status = plugin.registerNode("matrix3Controller", Matrix3Controller::id, Matrix3Controller::creator, Matrix3Controller::initialize, MPxNode::kDependNode, &Matrix3Controller::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("prs", PRS::id, PRS::creator, PRS::initialize);
+	status = plugin.registerNode("prs", PRS::id, PRS::creator, PRS::initialize, MPxNode::kDependNode, &PRS::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("ikChainControl", IKChainControl::id, IKChainControl::creator, IKChainControl::initialize);
+	status = plugin.registerNode("ikChainControl", IKChainControl::id, IKChainControl::creator, IKChainControl::initialize, MPxNode::kDependNode, &IKChainControl::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("splineIKChainControl", SplineIKChainControl::id, SplineIKChainControl::creator, SplineIKChainControl::initialize);
+	status = plugin.registerNode("splineIKChainControl", SplineIKChainControl::id, SplineIKChainControl::creator, SplineIKChainControl::initialize, MPxNode::kDependNode, &SplineIKChainControl::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("ikControl", IKControl::id, IKControl::creator, IKControl::initialize);
+	status = plugin.registerNode("ikControl", IKControl::id, IKControl::creator, IKControl::initialize, MPxNode::kDependNode, &IKControl::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("positionList", PositionList::id, PositionList::creator, PositionList::initialize);
+	status = plugin.registerNode("positionController", PositionController::id, PositionController::creator, PositionController::initialize, MPxNode::kDependNode, &PositionController::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("rotationList", RotationList::id, RotationList::creator, RotationList::initialize);
+	status = plugin.registerNode("positionList", PositionList::id, PositionList::creator, PositionList::initialize, MPxNode::kDependNode, &PositionList::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("scaleList", ScaleList::id, ScaleList::creator, ScaleList::initialize);
+	status = plugin.registerNode("springPosition", SpringPosition::id, SpringPosition::creator, SpringPosition::initialize, MPxNode::kDependNode, &SpringPosition::classification);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
+	status = plugin.registerNode("rotationController", RotationController::id, RotationController::creator, RotationController::initialize, MPxNode::kDependNode, &RotationController::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.registerNode("rotationList", RotationList::id, RotationList::creator, RotationList::initialize, MPxNode::kDependNode, &RotationList::classification);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
+	status = plugin.registerNode("scaleController", ScaleController::id, ScaleController::creator, ScaleController::initialize, MPxNode::kDependNode, &ScaleController::classification);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
+	status = plugin.registerNode("scaleList", ScaleList::id, ScaleList::creator, ScaleList::initialize, MPxNode::kDependNode, &ScaleList::classification);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
 	status = plugin.registerNode("positionConstraint", PositionConstraint::id, PositionConstraint::creator, PositionConstraint::initialize, MPxNode::kConstraintNode);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -77,6 +93,7 @@ MStatus initializePlugin(MObject obj)
 
 	status = plugin.registerNode("attachmentConstraint", AttachmentConstraint::id, AttachmentConstraint::creator, AttachmentConstraint::initialize, MPxNode::kConstraintNode);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 
 	return status;
 
@@ -97,9 +114,6 @@ MStatus uninitializePlugin(MObject obj)
 	status = plugin.deregisterNode(ExposeTransform::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.deregisterNode(Matrix3Controller::id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
 	status = plugin.deregisterNode(PRS::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -112,15 +126,30 @@ MStatus uninitializePlugin(MObject obj)
 	status = plugin.deregisterNode(IKControl::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.deregisterNode(Matrix3Controller::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	status = plugin.deregisterNode(PositionList::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.deregisterNode(SpringPosition::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(PositionController::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
 	status = plugin.deregisterNode(RotationList::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.deregisterNode(RotationController::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
 	status = plugin.deregisterNode(ScaleList::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.deregisterNode(ScaleController::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
 	status = plugin.deregisterNode(PositionConstraint::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 

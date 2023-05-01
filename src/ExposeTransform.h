@@ -96,8 +96,6 @@ public:
 	static	MString			exposeCategory;
 
 	static	MTypeId			id;
-	static	MString			classification;
-	
 	
 private:
 

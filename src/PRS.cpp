@@ -17,6 +17,10 @@ MObject	PRS::rotation;
 MObject	PRS::x_rotation;
 MObject	PRS::y_rotation;
 MObject	PRS::z_rotation;
+MObject	PRS::orientation;
+MObject	PRS::x_orientation;
+MObject	PRS::y_orientation;
+MObject	PRS::z_orientation;
 MObject	PRS::scale;
 MObject	PRS::x_scale;
 MObject	PRS::y_scale;
@@ -25,13 +29,14 @@ MObject	PRS::z_scale;
 MString	PRS::inputCategory("Input");
 MString	PRS::positionCategory("Position");
 MString	PRS::rotationCategory("Rotation");
+MString	PRS::orientationCategory("Orientation");
 MString	PRS::scaleCategory("Scale");
 
 MTypeId	PRS::id(0x0013b1cb);
 
 
-PRS::PRS() { this->isSlaveController = false;  this->masterController = nullptr; };
-PRS::~PRS() { this->masterController = nullptr; };
+PRS::PRS() : Matrix3Controller() {};
+PRS::~PRS() {};
 
 
 MStatus PRS::compute(const MPlug& plug, MDataBlock& data) 
@@ -74,6 +79,13 @@ Only these values should be used when performing computations!
 		MDataHandle yRotationHandle = rotationHandle.child(PRS::y_rotation);
 		MDataHandle zRotationHandle = rotationHandle.child(PRS::z_rotation);
 
+		MDataHandle orientationHandle = data.inputValue(PRS::orientation, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle xOrientationHandle = orientationHandle.child(PRS::x_orientation);
+		MDataHandle yOrientationHandle = orientationHandle.child(PRS::y_orientation);
+		MDataHandle zOrientationHandle = orientationHandle.child(PRS::z_orientation);
+
 		MDataHandle scaleHandle = data.inputValue(PRS::scale, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		
@@ -95,8 +107,18 @@ Only these values should be used when performing computations!
 		double yRotation = yRotationHandle.asAngle().asRadians();
 		double zRotation = zRotationHandle.asAngle().asRadians();
 
-		MTransformationMatrix::RotationOrder axisOrder = MTransformationMatrix::RotationOrder(axisOrderHandle.asShort() + 1);
+		unsigned int axisOrder = axisOrderHandle.asShort();
+		MTransformationMatrix::RotationOrder rotationOrder = MTransformationMatrix::RotationOrder(axisOrder + 1);
 		double3 eulerAngles = { xRotation, yRotation, zRotation };
+
+		// Get orientation value
+		//
+		double xOrientation = xOrientationHandle.asAngle().asRadians();
+		double yOrientation = yOrientationHandle.asAngle().asRadians();
+		double zOrientation = zOrientationHandle.asAngle().asRadians();
+
+		MEulerRotation::RotationOrder rotateOrder = MEulerRotation::RotationOrder(axisOrder);
+		MQuaternion orientation = MEulerRotation(xOrientation, yOrientation, zOrientation, rotateOrder).asQuaternion();
 
 		// Get scale value
 		//
@@ -110,7 +132,8 @@ Only these values should be used when performing computations!
 		//
 		MTransformationMatrix transform = MTransformationMatrix(MMatrix::identity);
 		transform.setTranslation(position, MSpace::kTransform);
-		transform.setRotation(eulerAngles, axisOrder);
+		transform.setRotation(eulerAngles, rotationOrder);
+		transform.setRotationOrientation(orientation);
 		transform.setScale(scale, MSpace::kTransform);
 
 		MObject transformData = Maxformations::createMatrixData(transform);
@@ -167,62 +190,6 @@ See pluginMain.cpp for details.
 {
 
 	return new PRS();
-
-};
-
-
-void PRS::registerMasterController(Matrix3Controller* controller)
-/**
-Instructs this PRS node to call the supplied controller when retrieving the Maxform pointer.
-This is useful for nested PRS nodes that are used under IK controllers.
-
-@param controller: The master controller.
-@return: Null.
-*/
-{
-
-	this->masterController = controller;
-	this->isSlaveController = true;
-
-};
-
-
-void PRS::deregisterMasterController()
-/**
-Removes all references to any registered master controllers.
-Once called the PRS node will resume using the internal Maxform pointer.
-
-@return: Null.
-*/
-{
-
-	this->masterController = nullptr;
-	this->isSlaveController = false;
-
-};
-
-
-Maxform* PRS::maxformPtr()
-/**
-Returns the maxform node associated with this matrix3 controller.
-If no maxform node exists then a null pointer is returned instead!
-
-@return: Maxform pointer.
-*/
-{
-
-	if (this->isSlaveController && this->masterController != nullptr)
-	{
-
-		return this->masterController->maxformPtr();
-
-	}
-	else
-	{
-
-		return Matrix3Controller::maxformPtr();
-
-	}
 
 };
 
@@ -338,6 +305,38 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::rotationCategory));
 	
+	// ".x_orientation" attribute
+	//
+	PRS::x_orientation = fnUnitAttr.create("x_orientation", "xo", MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::orientationCategory));
+
+	// ".y_orientation" attribute
+	//
+	PRS::y_orientation = fnUnitAttr.create("y_orientation", "yo", MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::orientationCategory));
+
+	// ".z_orientation" attribute
+	//
+	PRS::z_orientation = fnUnitAttr.create("z_orientation", "zo", MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::orientationCategory));
+
+	// ".orientation" attribute
+	//
+	PRS::orientation = fnNumericAttr.create("orientation", "o", PRS::x_orientation, PRS::y_orientation, PRS::z_orientation, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::orientationCategory));
+
 	// ".x_scale" attribute
 	//
 	PRS::x_scale = fnNumericAttr.create("x_scale", "xs", MFnNumericData::kDouble, 1.0, &status);
@@ -385,6 +384,7 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(PRS::addAttribute(PRS::position));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::rotation));
+	CHECK_MSTATUS(PRS::addAttribute(PRS::orientation));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::scale));
 	CHECK_MSTATUS(PRS::addAttribute(PRS::axisOrder));
 
@@ -393,6 +393,7 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::position, PRS::value));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::axisOrder, PRS::value));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::rotation, PRS::value));
+	CHECK_MSTATUS(PRS::attributeAffects(PRS::orientation, PRS::value));
 	CHECK_MSTATUS(PRS::attributeAffects(PRS::scale, PRS::value));
 
 	return status;

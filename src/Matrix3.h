@@ -41,19 +41,12 @@ public:
 	virtual	MMatrix						asScaleMatrix() const override;
 	virtual	MTransformationMatrix		asTransformationMatrix() const override;
 
-	virtual	void						setPreRotation(const MQuaternion& preRotate);
 	virtual	void						setTransform(const MTransformationMatrix& transform);
-
-	virtual	bool						isEnabled();
-	virtual	void						enable();
-	virtual	void						disable();
 
 	static	MTypeId						id;
 	
 protected:
 			
-			bool						enabled;
-			MQuaternion					preRotationValue;
 			MTransformationMatrix		transformValue;
 
 };

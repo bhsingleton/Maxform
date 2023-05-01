@@ -1,5 +1,5 @@
 //
-// File: ScaleListNode.cpp
+// File: ScaleList.cpp
 //
 // Dependency Graph Node: scaleList
 //
@@ -8,59 +8,33 @@
 
 #include "ScaleList.h"
 
-MObject		ScaleList::active;
-MObject		ScaleList::average;
-MObject		ScaleList::list;
-MObject		ScaleList::name;
-MObject		ScaleList::weight;
-MObject		ScaleList::absolute;
-MObject		ScaleList::scale;
-MObject		ScaleList::x_scale;
-MObject		ScaleList::y_scale;
-MObject		ScaleList::z_scale;
+MObject	ScaleList::active;
+MObject	ScaleList::average;
+MObject	ScaleList::list;
+MObject	ScaleList::name;
+MObject	ScaleList::weight;
+MObject	ScaleList::absolute;
+MObject	ScaleList::scale;
+MObject	ScaleList::x_scale;
+MObject	ScaleList::y_scale;
+MObject	ScaleList::z_scale;
 
-MObject		ScaleList::value;
-MObject		ScaleList::valueX;
-MObject		ScaleList::valueY;
-MObject		ScaleList::valueZ;
-MObject		ScaleList::preValue;
-MObject		ScaleList::preValueX;
-MObject		ScaleList::preValueY;
-MObject		ScaleList::preValueZ;
-MObject		ScaleList::matrix;
-MObject		ScaleList::inverseMatrix;
+MObject	ScaleList::preValue;
+MObject	ScaleList::preValueX;
+MObject	ScaleList::preValueY;
+MObject	ScaleList::preValueZ;
+MObject	ScaleList::matrix;
+MObject	ScaleList::inverseMatrix;
 
-MString		ScaleList::inputCategory("Input");
-MString		ScaleList::outputCategory("Output");
-MString		ScaleList::listCategory("List");
-MString		ScaleList::scaleCategory("Scale");
-MString		ScaleList::preScaleCategory("PreScale");
+MString	ScaleList::inputCategory("Input");
+MString	ScaleList::listCategory("List");
+MString	ScaleList::preValueCategory("PreValue");
 
-MTypeId		ScaleList::id(0x0013b1c7);
+MTypeId	ScaleList::id(0x0013b1c7);
 
 
-ScaleList::ScaleList()
-/**
-Constructor.
-*/
-{
-	
-	this->prs = nullptr;
-	this->previousIndex = -1;
-	this->activeIndex = -1;
-
-};
-
-
-ScaleList::~ScaleList()
-/**
-Destructor.
-*/
-{
-	
-	this->prs = nullptr;
-
-};
+ScaleList::ScaleList() : ScaleController() { this->previousIndex = -1; this->activeIndex = -1; };
+ScaleList::~ScaleList() {};
 
 
 MStatus ScaleList::compute(const MPlug& plug, MDataBlock& data) 
@@ -87,7 +61,10 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (fnAttribute.hasCategory(ScaleList::outputCategory))
+	bool isValue = fnAttribute.hasCategory(ScaleList::valueCategory);
+	bool isPreValue = fnAttribute.hasCategory(ScaleList::preValueCategory);
+
+	if (isValue)
 	{
 		
 		// Get input data handles
@@ -151,7 +128,7 @@ Only these values should be used when performing computations!
 		return MS::kSuccess;
 
 	}
-	else if (fnAttribute.hasCategory(ScaleList::preScaleCategory))
+	else if (isPreValue)
 	{
 
 		// Get input data handles
@@ -265,6 +242,20 @@ Another use for this method is to impose attribute limits.
 };
 
 
+void ScaleList::dependentChanged(const MObject& otherNode)
+/**
+Notifies that a dependent of this node has changed.
+
+@param node: The node that is dependent on this controller.
+@return: Void.
+*/
+{
+
+	this->updateActiveController();
+
+};
+
+
 MStatus ScaleList::updateActiveController()
 /**
 Updates the active controller.
@@ -274,9 +265,12 @@ Updates the active controller.
 */
 {
 
+	MStatus status;
+
 	// Redundancy check
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (this->previousIndex == this->activeIndex || maxform == nullptr)
 	{
@@ -316,7 +310,8 @@ Transfers any connections from the associated maxform back to the specified inde
 
 	// Check if maxform exists
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (maxform == nullptr)
 	{
@@ -376,7 +371,8 @@ Transfers any connections from the specified index to the associated maxform.
 
 	// Check if maxform exists
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (maxform == nullptr)
 	{
@@ -422,109 +418,6 @@ Transfers any connections from the specified index to the associated maxform.
 		return MS::kNotFound;
 
 	}
-
-};
-
-
-MStatus ScaleList::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isOutput = fnAttribute.hasCategory(ScaleList::outputCategory);
-
-	if ((isOutput && asSrc) && this->prs == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == PRS::id)
-		{
-
-			this->prs = static_cast<PRS*>(fnDependNode.userNode(&status));
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			this->updateActiveController();
-
-		}
-
-	}
-
-	return MPxNode::connectionMade(plug, otherPlug, asSrc);
-
-};
-
-
-MStatus ScaleList::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isOutput = fnAttribute.hasCategory(PRS::valueCategory);
-
-	if ((isOutput && asSrc) && this->prs != nullptr)
-	{
-
-		// Check if plug is still partially connected
-		//
-		MPlug scalePlug = MPlug(this->prs->thisMObject(), PRS::scale);
-
-		bool isPartiallyConnected = Maxformations::isPartiallyConnected(scalePlug, true, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (!isPartiallyConnected)
-		{
-
-			this->prs = nullptr;
-
-		}
-
-	}
-
-	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 
@@ -749,29 +642,18 @@ Normalizes the passed weights so that the total sum equals 1.0.
 };
 
 
-Maxform* ScaleList::maxformPtr()
+bool ScaleList::isAbstractClass() const
 /**
-Returns the maxform node associated with this list controller.
-If no maxform node exists then a null pointer is returned instead!
+Override this class to return true if this node is an abstract node.
+An abstract node can only be used as a base class. It cannot be created using the 'createNode' command.
 
-@return: Maxform pointer.
+@return: True if the node is abstract.
 */
 {
 
-	if (this->prs != nullptr)
-	{
+	return false;
 
-		return this->prs->maxformPtr();
-
-	}
-	else
-	{
-
-		return nullptr;
-
-	}
-
-}
+};
 
 
 void* ScaleList::creator() 
@@ -858,7 +740,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));
 
 	// ".y_scale" attribute
@@ -868,7 +749,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));
 
 	// ".z_scale" attribute
@@ -878,7 +758,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setKeyable(true));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));
 
 	// ".position" attribute
@@ -887,7 +766,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::scaleCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::listCategory));
 
 	// ".list" attribute
@@ -904,42 +782,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnCompoundAttr.addToCategory(ScaleList::listCategory));
 
 	// Output attributes:
-	// ".valueX" attribute
-	//
-	ScaleList::valueX = fnNumericAttr.create("valueX", "vx", MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::outputCategory));
-
-	// ".valueY" attribute
-	//
-	ScaleList::valueY = fnNumericAttr.create("valueY", "vy", MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::outputCategory));
-
-	// ".valueZ" attribute
-	//
-	ScaleList::valueZ = fnNumericAttr.create("valueZ", "vz", MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::outputCategory));
-
-	// ".value" attribute
-	//
-	ScaleList::value = fnNumericAttr.create("value", "v", ScaleList::valueX, ScaleList::valueY, ScaleList::valueZ, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::outputCategory));
-
 	// ".preValueX" attribute
 	//
 	ScaleList::preValueX = fnNumericAttr.create("preValueX", "pvx", MFnNumericData::kDouble, 1.0, &status);
@@ -947,7 +789,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
 	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preScaleCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preValueCategory));
 
 	// ".preValueY" attribute
 	//
@@ -956,7 +798,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
 	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preScaleCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preValueCategory));
 
 	// ".preValueZ" attribute
 	//
@@ -965,7 +807,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
 	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preScaleCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preValueCategory));
 
 	// ".preValue" attribute
 	//
@@ -974,7 +816,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
 	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preScaleCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(ScaleList::preValueCategory));
 
 	// ".matrix" attribute
 	//
@@ -983,7 +825,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(ScaleList::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(ScaleList::valueCategory));
 
 	// ".inverseMatrix" attribute
 	//
@@ -992,8 +834,12 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(ScaleList::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(ScaleList::valueCategory));
 
+	// Inherit attribute from parent class
+	//
+	status = ScaleList::inheritAttributesFrom("scaleController");
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Add attributes to node
 	//
@@ -1001,7 +847,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(ScaleList::addAttribute(ScaleList::average));
 	CHECK_MSTATUS(ScaleList::addAttribute(ScaleList::list));
 
-	CHECK_MSTATUS(ScaleList::addAttribute(ScaleList::value));
 	CHECK_MSTATUS(ScaleList::addAttribute(ScaleList::preValue));
 	CHECK_MSTATUS(ScaleList::addAttribute(ScaleList::matrix));
 	CHECK_MSTATUS(ScaleList::addAttribute(ScaleList::inverseMatrix));

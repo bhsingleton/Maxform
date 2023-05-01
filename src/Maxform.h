@@ -11,6 +11,9 @@
 #include "Maxformations.h"
 #include "Matrix3.h"
 
+#include <assert.h>
+#include <map>
+
 #include <maya/MPxTransform.h>
 #include <maya/MPxTransformationMatrix.h>
 #include <maya/MObject.h>
@@ -40,9 +43,6 @@
 #include <maya/MTypeId.h> 
 #include <maya/MGlobal.h>
 
-#include <assert.h>
-#include <map>
-
 
 class Maxform : public MPxTransform
 {
@@ -57,30 +57,21 @@ public:
 	virtual bool			treatAsTransform() const;
 
 	virtual	void			getCacheSetup(const MEvaluationNode& evaluationNode, MNodeCacheDisablingInfo& disablingInfo, MNodeCacheSetupInfo& cacheSetupInfo, MObjectArray& monitoredAttributes) const;
-
 	virtual	MStatus			validateAndSetValue(const MPlug& plug, const MDataHandle& handle);
-	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual	MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-
-	virtual	Matrix3*		matrix3Ptr();
 
 	static  void*						creator();
 	virtual	MPxTransformationMatrix*	createTransformationMatrix();
-	static  MStatus						initialize();
+	
+	static  MStatus			initialize();
 	
 public:
 	
-	static	MObject			preRotate;
-	static	MObject			preRotateX;
-	static	MObject			preRotateY;
-	static	MObject			preRotateZ;
 	static	MObject			transform;
 
 	static	MObject			translationPart;
 	static	MObject			rotationPart;
 	static	MObject			scalePart;
 
-	static	MString			preRotateCategory;
 	static	MString			matrixCategory;
 	static	MString			matrixPartsCategory;
 	static	MString			parentMatrixCategory;
@@ -88,10 +79,6 @@ public:
 
 	static	MString			classification;
 	static	MTypeId			id;
-
-private:
-
-			bool			matrix3Enabled;
 
 };
 #endif

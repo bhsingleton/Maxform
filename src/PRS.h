@@ -45,11 +45,6 @@ public:
 	static  void*		creator();
 	static  MStatus		initialize();
 
-	virtual	void		registerMasterController(Matrix3Controller* controller);
-	virtual	void		deregisterMasterController();
-
-	virtual	Maxform*	maxformPtr() override;
-
 public:
 
 	static	MObject		position;
@@ -61,6 +56,10 @@ public:
 	static	MObject		x_rotation;
 	static	MObject		y_rotation;
 	static	MObject		z_rotation;
+	static	MObject		orientation;
+	static	MObject		x_orientation;
+	static	MObject		y_orientation;
+	static	MObject		z_orientation;
 	static	MObject		scale;
 	static	MObject		x_scale;
 	static	MObject		y_scale;
@@ -71,14 +70,10 @@ public:
 	static	MString		inputCategory;
 	static	MString		positionCategory;
 	static	MString		rotationCategory;
+	static	MString		orientationCategory;
 	static	MString		scaleCategory;
 
 	static	MTypeId		id;
-
-protected:
-
-			bool				isSlaveController;
-			Matrix3Controller*	masterController;
 
 };
 #endif

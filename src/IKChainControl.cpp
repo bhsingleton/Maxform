@@ -38,8 +38,8 @@ MString	IKChainControl::goalCategory("Goal");
 MTypeId	IKChainControl::id(0x0013b1cf);
 
 
-IKChainControl::IKChainControl() : Matrix3Controller() { this->prs = nullptr; };
-IKChainControl::~IKChainControl() { this->prs = nullptr; };
+IKChainControl::IKChainControl() : Matrix3Controller() {};
+IKChainControl::~IKChainControl() {};
 
 
 MStatus IKChainControl::compute(const MPlug& plug, MDataBlock& data)
@@ -354,6 +354,12 @@ Returns an array of ik-control specs from the supplied array handle.
 
 
 MMatrixArray IKChainControl::getMatrices(const std::vector<IKControlSpec>& joints)
+/**
+Returns the matrices from the supplied joint specs.
+
+@param joints: The joint specs to sample from.
+@return: The joint matrices.
+*/
 {
 
 	size_t numJoints = joints.size();
@@ -593,6 +599,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	double endLength = endJoint.length;
 
 	double maxDistance = startLength + endLength;
+	double minDistance = std::fabs(endLength - startLength);
 
 	// Calculate aim vector
 	//
@@ -606,9 +613,21 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	// Calculate angles using law of cosines
 	//
 	double startRadian = 0.0;
-	double endRadian = M_PI;
+	double endRadian = 0.0;
 
-	if (distance < (maxDistance - 1e-3))
+	if (distance < (minDistance + 1e-3)) // Collapsed
+	{
+
+		endRadian = 0.0; 
+
+	}
+	else if (distance > (maxDistance - 1e-3))  // Hyper-extended
+	{
+
+		endRadian = M_PI;
+
+	}
+	else  // Default
 	{
 
 		startRadian = acos((pow(startLength, 2.0) + pow(distance, 2.0) - pow(endLength, 2.0)) / (2.0 * startLength * distance));
@@ -666,7 +685,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 MStatus IKChainControl::legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal)
 /**
 This method allows you to check for legal connections being made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection if you are unable to determine if it is legal.
+You should return `kUnknownParameter` to specify that maya should handle this connection if you are unable to determine if it is legal.
 
 @param plug: Attribute on this node.
 @param otherPlug: Attribute on the other node.
@@ -683,18 +702,15 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	if ((plug == IKChainControl::ikGoal && asSrc) && otherPlug == PRS::value)
 	{
 
-		// Evaluate if other node is a `prs` node
+		// Evaluate if other node is supported
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isPRS = Maxformations::hasTypeId(otherNode, PRS::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MTypeId typeId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		isLegal = (typeId == PRS::id);
+		isLegal = isPRS;
 
 		return MS::kSuccess;
 
@@ -702,18 +718,15 @@ You should return kUnknownParameter to specify that maya should handle this conn
 	else if ((plug == IKChainControl::jointMatrix || (plug == IKChainControl::jointPreferredRotationX || plug == IKChainControl::jointPreferredRotationY || plug == IKChainControl::jointPreferredRotationZ)) && asSrc)
 	{
 
-		// Evaluate if other node is a `ikControl` node
+		// Evaluate if other node is supported
 		//
 		MObject otherNode = otherPlug.node(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isIKControl = Maxformations::hasTypeId(otherNode, IKControl::id, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MTypeId typeId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		isLegal = (typeId == IKControl::id);
+		isLegal = isIKControl;
 
 		return MS::kSuccess;
 
@@ -724,81 +737,6 @@ You should return kUnknownParameter to specify that maya should handle this conn
 		return MPxNode::legalConnection(plug, otherPlug, asSrc, isLegal);
 
 	}
-
-};
-
-
-MStatus IKChainControl::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	if ((plug == IKChainControl::ikGoal && !asSrc) && otherPlug == PRS::value)
-	{
-
-		// Store reference to prs
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		this->prs = static_cast<PRS*>(fnDependNode.userNode());
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		this->prs->registerMasterController(this);
-
-	}
-
-	return MPxNode::connectionMade(plug, otherPlug, asSrc);
-
-};
-
-
-MStatus IKChainControl::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	if ((plug == IKChainControl::ikGoal && !asSrc) && otherPlug == PRS::value)
-	{
-
-		// Cleanup reference to prs
-		//
-		if (this->prs != nullptr)
-		{
-
-			this->prs->deregisterMasterController();
-			this->prs = nullptr;
-
-		}
-
-	}
-	
-	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 

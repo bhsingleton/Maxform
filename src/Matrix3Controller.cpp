@@ -6,16 +6,17 @@
 
 #include "Matrix3Controller.h"
 
-MObject Matrix3Controller::IDENTITY_MATRIX_DATA;
-
 MObject	Matrix3Controller::value;
 MString	Matrix3Controller::valueCategory("Value");
 
+MString Matrix3Controller::classification("matrix3Controller");
 MTypeId	Matrix3Controller::id(0x0013b1d1);
 
+MObject Matrix3Controller::IDENTITY_MATRIX_DATA;
 
-Matrix3Controller::Matrix3Controller() { this->maxform = nullptr; };
-Matrix3Controller::~Matrix3Controller() { this->maxform = nullptr; };
+
+Matrix3Controller::Matrix3Controller() { this->matrix3Controller = MObjectHandle(); this->maxform = MObjectHandle(); };
+Matrix3Controller::~Matrix3Controller() { this->matrix3Controller = MObjectHandle(); this->maxform = MObjectHandle(); };
 
 
 MStatus Matrix3Controller::compute(const MPlug& plug, MDataBlock& data)
@@ -53,19 +54,33 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == Matrix3Controller::value && asSrc) && otherPlug == Maxform::transform)
+	if (plug == Matrix3Controller::value && asSrc)
 	{
 
-		// Store reference to maxform
+		// Evaluate other node's classification
 		//
-		MObject otherNode = otherPlug.node(&status);
+		MObject otherNode = otherPlug.node();
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MFnDependencyNode fnDependNode(otherNode, &status);
+		bool isMatrix3Controller = Maxformations::hasClassification(otherNode, Matrix3Controller::classification, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		this->maxform = static_cast<Maxform*>(fnDependNode.userNode(&status));
+		bool isMaxform = Maxformations::hasClassification(otherNode, Maxform::classification, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (isMatrix3Controller && !this->matrix3Controller.isAlive())
+		{
+
+			this->matrix3Controller = MObjectHandle(otherNode);
+
+		}
+		else if (isMaxform && !this->maxform.isAlive())
+		{
+
+			this->maxform = MObjectHandle(otherNode);
+
+		}
+		else;
 
 	}
 
@@ -90,12 +105,33 @@ You should return kUnknownParameter to specify that maya should handle this conn
 
 	// Inspect plug attribute
 	//
-	if ((plug == Matrix3Controller::value && asSrc) && otherPlug == Maxform::transform)
+	if (plug == Matrix3Controller::value && asSrc)
 	{
 
-		// Cleanup reference to maxform
+		// Evaluate other node's classification
 		//
-		this->maxform = nullptr;
+		MObject otherNode = otherPlug.node();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		bool isMatrix3Controller = Maxformations::hasClassification(otherNode, Matrix3Controller::classification, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		bool isMaxform = Maxformations::hasClassification(otherNode, Maxform::classification, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (isMatrix3Controller)
+		{
+
+			this->matrix3Controller = MObjectHandle();
+
+		}
+		else if (isMaxform)
+		{
+			
+			this->maxform = MObjectHandle();
+
+		}
+		else;
 
 	}
 
@@ -132,7 +168,7 @@ See pluginMain.cpp for details.
 };
 
 
-Maxform* Matrix3Controller::maxformPtr()
+Maxform* Matrix3Controller::getAssociatedTransform(MStatus* status)
 /**
 Returns the maxform node associated with this matrix3 controller.
 If no maxform node exists then a null pointer is returned instead!
@@ -140,8 +176,43 @@ If no maxform node exists then a null pointer is returned instead!
 @return: Maxform pointer.
 */
 {
+	
+	if (this->maxform.isAlive())
+	{
 
-	return this->maxform;
+		MObject node = this->maxform.object();
+
+		MFnDependencyNode fnNode(node, status);
+		CHECK_MSTATUS_AND_RETURN(*status, nullptr);
+
+		MPxNode* userNode = fnNode.userNode(status);
+		CHECK_MSTATUS_AND_RETURN(*status, nullptr);
+
+		return static_cast<Maxform*>(userNode);
+
+	}
+	else if (this->matrix3Controller.isAlive())
+	{
+
+		MObject node = this->matrix3Controller.object();
+
+		MFnDependencyNode fnNode(node, status);
+		CHECK_MSTATUS_AND_RETURN(*status, nullptr);
+
+		MPxNode* userNode = fnNode.userNode(status);
+		CHECK_MSTATUS_AND_RETURN(*status, nullptr);
+
+		Matrix3Controller* controller = static_cast<Matrix3Controller*>(userNode);
+
+		return controller->getAssociatedTransform(status);
+
+	}
+	else
+	{
+
+		return nullptr;
+
+	}
 
 };
 

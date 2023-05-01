@@ -1,5 +1,5 @@
 //
-// File: RotationListNode.cpp
+// File: RotationList.cpp
 //
 // Dependency Graph Node: rotationList
 //
@@ -8,60 +8,34 @@
 
 #include "RotationList.h"
 
-MObject		RotationList::active;
-MObject		RotationList::average;
-MObject		RotationList::list;
-MObject		RotationList::name;
-MObject		RotationList::weight;
-MObject		RotationList::absolute;
-MObject		RotationList::axisOrder;
-MObject		RotationList::rotation;
-MObject		RotationList::x_rotation;
-MObject		RotationList::y_rotation;
-MObject		RotationList::z_rotation;
+MObject	RotationList::active;
+MObject	RotationList::average;
+MObject	RotationList::list;
+MObject	RotationList::name;
+MObject	RotationList::weight;
+MObject	RotationList::absolute;
+MObject	RotationList::axisOrder;
+MObject	RotationList::rotation;
+MObject	RotationList::x_rotation;
+MObject	RotationList::y_rotation;
+MObject	RotationList::z_rotation;
 
-MObject		RotationList::value;
-MObject		RotationList::valueX;
-MObject		RotationList::valueY;
-MObject		RotationList::valueZ;
-MObject		RotationList::preValue;
-MObject		RotationList::preValueX;
-MObject		RotationList::preValueY;
-MObject		RotationList::preValueZ;
-MObject		RotationList::matrix;
-MObject		RotationList::inverseMatrix;
+MObject	RotationList::preValue;
+MObject	RotationList::preValueX;
+MObject	RotationList::preValueY;
+MObject	RotationList::preValueZ;
+MObject	RotationList::matrix;
+MObject	RotationList::inverseMatrix;
 
-MString		RotationList::inputCategory("Input");
-MString		RotationList::outputCategory("Output");
-MString		RotationList::listCategory("List");
-MString		RotationList::rotationCategory("Rotation");
-MString		RotationList::preRotationCategory("PreRotation");
+MString	RotationList::inputCategory("Input");
+MString	RotationList::listCategory("List");
+MString	RotationList::preValueCategory("PreValue");
 
-MTypeId		RotationList::id(0x0013b1c6);
+MTypeId	RotationList::id(0x0013b1c6);
 
 
-RotationList::RotationList() 
-/**
-Constructor.
-*/
-{ 
-
-	this->prs = nullptr;
-	this->previousIndex = -1;
-	this->activeIndex = -1;
-
-};
-
-
-RotationList::~RotationList()
-/**
-Destructor.
-*/
-{
-
-	this->prs = nullptr;
-
-};
+RotationList::RotationList() : RotationController() { this->previousIndex = -1; this->activeIndex = -1; };
+RotationList::~RotationList() {};
 
 
 MStatus RotationList::compute(const MPlug& plug, MDataBlock& data) 
@@ -88,7 +62,10 @@ Only these values should be used when performing computations!
 	MFnAttribute fnAttribute(attribute, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (fnAttribute.hasCategory(RotationList::outputCategory))
+	bool isValue = fnAttribute.hasCategory(RotationList::valueCategory);
+	bool isPreValue = fnAttribute.hasCategory(RotationList::preValueCategory);
+
+	if (isValue)
 	{
 		
 		// Get input data handles
@@ -153,7 +130,7 @@ Only these values should be used when performing computations!
 		return MS::kSuccess;
 
 	}
-	else if (fnAttribute.hasCategory(RotationList::preRotationCategory))
+	else if (isPreValue)
 	{
 		
 		// Get input data handles
@@ -270,6 +247,20 @@ Another use for this method is to impose attribute limits.
 };
 
 
+void RotationList::dependentChanged(const MObject& otherNode)
+/**
+Notifies that a dependent of this node has changed.
+
+@param node: The node that is dependent on this controller.
+@return: Void.
+*/
+{
+	
+	this->updateActiveController();
+
+};
+
+
 MStatus RotationList::updateActiveController()
 /**
 Updates the active controller.
@@ -283,7 +274,8 @@ Updates the active controller.
 
 	// Redundancy check
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (this->previousIndex == this->activeIndex || maxform == nullptr)
 	{
@@ -323,7 +315,8 @@ Transfers any connections from the associated maxform back to the specified inde
 
 	// Check if maxform exists
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (maxform == nullptr)
 	{
@@ -393,7 +386,8 @@ Transfers any connections from the specified index to the associated maxform.
 
 	// Check if maxform exists
 	//
-	Maxform* maxform = this->maxformPtr();
+	Maxform* maxform = this->getAssociatedTransform(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (maxform == nullptr)
 	{
@@ -452,109 +446,6 @@ Transfers any connections from the specified index to the associated maxform.
 		return MS::kNotFound;
 
 	}
-
-};
-
-
-MStatus RotationList::connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isOutput = fnAttribute.hasCategory(RotationList::outputCategory);
-
-	if ((isOutput && asSrc) && this->prs == nullptr)
-	{
-
-		// Inspect other node
-		//
-		MObject otherNode = otherPlug.node(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MFnDependencyNode fnDependNode(otherNode, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MTypeId otherId = fnDependNode.typeId(&status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (otherId == PRS::id)
-		{
-
-			this->prs = static_cast<PRS*>(fnDependNode.userNode(&status));
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			this->updateActiveController();
-
-		}
-
-	}
-
-	return MPxNode::connectionMade(plug, otherPlug, asSrc);
-
-};
-
-
-MStatus RotationList::connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc)
-/**
-This method gets called when connections are made to attributes of this node.
-You should return kUnknownParameter to specify that maya should handle this connection or if you want maya to process the connection as well.
-
-@param plug: Attribute on this node.
-@param otherPlug: Attribute on the other node.
-@param asSrc: Is this plug a source of the connection.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Inspect plug attribute
-	//
-	MObject attribute = plug.attribute(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MFnAttribute fnAttribute(attribute, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	bool isOutput = fnAttribute.hasCategory(PRS::valueCategory);
-
-	if ((isOutput && asSrc) && this->prs != nullptr)
-	{
-
-		// Check if plug is still partially connected
-		//
-		MPlug rotationPlug = MPlug(this->prs->thisMObject(), PRS::rotation);
-
-		bool isPartiallyConnected = Maxformations::isPartiallyConnected(rotationPlug, true, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		if (!isPartiallyConnected)
-		{
-
-			this->prs = nullptr;
-
-		}
-
-	}
-
-	return MPxNode::connectionBroken(plug, otherPlug, asSrc);
 
 };
 
@@ -776,29 +667,18 @@ Normalizes the passed weights so that the total sum equals 1.0.
 };
 
 
-Maxform* RotationList::maxformPtr()
+bool RotationList::isAbstractClass() const
 /**
-Returns the maxform node associated with this list controller.
-If no maxform node exists then a null pointer is returned instead!
+Override this class to return true if this node is an abstract node.
+An abstract node can only be used as a base class. It cannot be created using the 'createNode' command.
 
-@return: Maxform pointer.
+@return: True if the node is abstract.
 */
 {
 
-	if (this->prs != nullptr)
-	{
+	return false;
 
-		return this->prs->maxformPtr();
-
-	}
-	else
-	{
-
-		return nullptr;
-
-	}
-
-}
+};
 
 
 void* RotationList::creator() 
@@ -900,7 +780,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::listCategory));
 
 	// ".y_rotation" attribute
@@ -910,7 +789,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::listCategory));
 
 	// ".z_rotation" attribute
@@ -920,7 +798,6 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setKeyable(true));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::inputCategory));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::listCategory));
 
 	// ".rotation" attribute
@@ -929,7 +806,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::inputCategory));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::rotationCategory));
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::listCategory));
 
 	// ".list" attribute
@@ -947,42 +823,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(fnCompoundAttr.addToCategory(RotationList::listCategory));
 
 	// Output attributes:
-	// ".valueX" attribute
-	//
-	RotationList::valueX = fnUnitAttr.create("valueX", "vx", MFnUnitAttribute::kAngle, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
-	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::outputCategory));
-
-	// ".valueY" attribute
-	//
-	RotationList::valueY = fnUnitAttr.create("valueY", "vy", MFnUnitAttribute::kAngle, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
-	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::outputCategory));
-
-	// ".valueZ" attribute
-	//
-	RotationList::valueZ = fnUnitAttr.create("valueZ", "vz", MFnUnitAttribute::kAngle, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
-	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::outputCategory));
-
-	// ".value" attribute
-	//
-	RotationList::value = fnNumericAttr.create("value", "v", RotationList::valueX, RotationList::valueY, RotationList::valueZ, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
-	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::outputCategory));
-
 	// ".preValueX" attribute
 	//
 	RotationList::preValueX = fnUnitAttr.create("preValueX", "pvx", MFnUnitAttribute::kAngle, 0.0, &status);
@@ -990,7 +830,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
 	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preValueCategory));
 
 	// ".preValueY" attribute
 	//
@@ -999,7 +839,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
 	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preValueCategory));
 
 	// ".preValueZ" attribute
 	//
@@ -1008,7 +848,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnUnitAttr.setWritable(false));
 	CHECK_MSTATUS(fnUnitAttr.setStorable(false));
-	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(RotationList::preValueCategory));
 
 	// ".preValue" attribute
 	//
@@ -1017,7 +857,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnNumericAttr.setWritable(false));
 	CHECK_MSTATUS(fnNumericAttr.setStorable(false));
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::preRotationCategory));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(RotationList::preValueCategory));
 
 	// ".matrix" attribute
 	//
@@ -1026,7 +866,7 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(RotationList::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(RotationList::valueCategory));
 
 	// ".inverseMatrix" attribute
 	//
@@ -1035,7 +875,12 @@ Use this function to define any static attributes.
 
 	CHECK_MSTATUS(fnMatrixAttr.setWritable(false));
 	CHECK_MSTATUS(fnMatrixAttr.setStorable(false));
-	CHECK_MSTATUS(fnMatrixAttr.addToCategory(RotationList::outputCategory));
+	CHECK_MSTATUS(fnMatrixAttr.addToCategory(RotationList::valueCategory));
+
+	// Inherit attribute from parent class
+	//
+	status = RotationList::inheritAttributesFrom("rotationController");
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Add attributes to node
 	//
@@ -1043,7 +888,6 @@ Use this function to define any static attributes.
 	CHECK_MSTATUS(RotationList::addAttribute(RotationList::average));
 	CHECK_MSTATUS(RotationList::addAttribute(RotationList::list));
 
-	CHECK_MSTATUS(RotationList::addAttribute(RotationList::value));
 	CHECK_MSTATUS(RotationList::addAttribute(RotationList::preValue));
 	CHECK_MSTATUS(RotationList::addAttribute(RotationList::matrix));
 	CHECK_MSTATUS(RotationList::addAttribute(RotationList::inverseMatrix));

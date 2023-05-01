@@ -16,8 +16,6 @@ Constructor.
 */
 { 
 	
-	this->enabled = false;
-	this->preRotationValue = MQuaternion::identity;
 	this->transformValue = MTransformationMatrix::identity; 
 
 };
@@ -138,18 +136,7 @@ The rotate orientation orients the local rotation space.
 */
 {
 
-	if (this->enabled)
-	{
-
-		return this->preRotationValue;
-
-	}
-	else
-	{
-
-		return MPxTransformationMatrix::preRotation();
-
-	}
+	return this->transformValue.rotationOrientation();
 
 };
 
@@ -162,18 +149,7 @@ Returns the four by four matrix that describes this transformation.
 */
 {
 	
-	if (this->enabled)
-	{
-		
-		return this->transformValue.asMatrix();
-		
-	}
-	else
-	{
-		
-		return MPxTransformationMatrix::asMatrix();
-		
-	}
+	return this->transformValue.asMatrix();
 	
 };
 
@@ -199,18 +175,7 @@ Returns the rotate section of the transformation matrix.
 */
 {
 
-	if (this->enabled)
-	{
-
-		return this->transformValue.asRotateMatrix();
-
-	}
-	else
-	{
-
-		return MPxTransformationMatrix::asRotateMatrix();
-
-	}
+	return this->transformValue.asRotateMatrix();
 
 };
 
@@ -224,18 +189,7 @@ The scale matrix takes points from object space to the space immediately followi
 */
 {
 
-	if (this->enabled)
-	{
-
-		return this->transformValue.asScaleMatrix();
-
-	}
-	else
-	{
-
-		return MPxTransformationMatrix::asScaleMatrix();
-
-	}
+	return this->transformValue.asScaleMatrix();
 
 };
 
@@ -248,32 +202,7 @@ Returns the custom transformation matrix as a standard MTransformationMatrix.
 */
 {
 
-	if (this->enabled)
-	{
-
-		return this->transformValue;
-
-	}
-	else
-	{
-
-		return MPxTransformationMatrix::asTransformationMatrix();
-
-	}
-
-};
-
-
-void Matrix3::setPreRotation(const MQuaternion& preRotation)
-/**
-Updates the internal pre-rotation quaternion.
-
-@param matrix: The new pre-rotation quaternion.
-@return: Void.
-*/
-{
-
-	this->preRotationValue = preRotation;
+	return MTransformationMatrix(this->transformValue);
 
 };
 
@@ -288,46 +217,5 @@ Updates the internal transformation matrix.
 {
 
 	this->transformValue = transform;
-
-};
-
-
-bool Matrix3::isEnabled()
-/**
-Evaluates if the transform value is overriding the default values.
-
-@return: Enabled.
-*/
-{
-
-	return this->enabled;
-
-};
-
-
-void Matrix3::enable()
-/**
-Updates the internal transformation matrix.
-
-@param matrix: The new transformation matrix.
-@return: Void.
-*/
-{
-
-	this->enabled = true;
-
-};
-
-
-void Matrix3::disable()
-/**
-Updates the internal transformation matrix.
-
-@param matrix: The new transformation matrix.
-@return: Void.
-*/
-{
-
-	this->enabled = false;
 
 };

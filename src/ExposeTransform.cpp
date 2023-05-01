@@ -42,7 +42,6 @@ MObject		ExposeTransform::angle;
 MString		ExposeTransform::exposeCategory("Expose");
 
 MTypeId		ExposeTransform::id(0x0013b1c8);
-MString		ExposeTransform::classification("drawdb/geometry/transform/exposeTm");
 
 
 ExposeTransform::ExposeTransform()

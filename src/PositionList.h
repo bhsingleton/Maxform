@@ -9,7 +9,7 @@
 //
 
 #include "Maxformations.h"
-#include "PRS.h"
+#include "PositionController.h"
 
 #include <utility>
 #include <map>
@@ -44,7 +44,7 @@ struct PositionListItem
 };
 
 
-class PositionList : public MPxNode
+class PositionList : public PositionController
 {
 
 public:
@@ -55,8 +55,7 @@ public:
 	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 
 	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& handle);
-	virtual MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
+	virtual	void			dependentChanged(const MObject& otherNode) override;
 
 	static	MVector			sum(MArrayDataHandle& handle, const bool normalizeWeights, MStatus* status);
 	static	MVector			sum(MArrayDataHandle& handle, const unsigned int active, const bool normalizeWeights, MStatus* status);
@@ -67,8 +66,7 @@ public:
 	virtual	MStatus			pullController(unsigned int index);
 	virtual	MStatus			pushController(unsigned int index);
 
-	virtual	Maxform*		maxformPtr();
-
+	virtual	bool			isAbstractClass() const;
 	static  void*			creator();
 	static  MStatus			initialize();
 
@@ -84,11 +82,7 @@ public:
 	static	MObject			x_position;
 	static	MObject			y_position;
 	static	MObject			z_position;
-	
-	static	MObject			value;
-	static	MObject			valueX;
-	static	MObject			valueY;
-	static	MObject			valueZ;
+
 	static	MObject			preValue;
 	static	MObject			preValueX;
 	static	MObject			preValueY;
@@ -97,16 +91,13 @@ public:
 	static	MObject			inverseMatrix;
 
 	static	MString			inputCategory;
-	static	MString			outputCategory;
 	static	MString			listCategory;
-	static	MString			positionCategory;
-	static	MString			prePositionCategory;
+	static	MString			preValueCategory;
 
 	static	MTypeId			id;
 
 protected:
 			
-			PRS*			prs;
 			unsigned int	previousIndex;
 			unsigned int	activeIndex;
 

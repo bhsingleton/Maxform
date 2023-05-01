@@ -10,7 +10,6 @@
 
 #include "Matrix3Controller.h"
 #include "IKControl.h"
-#include "PRS.h"
 
 #include <maya/MObject.h>
 #include <maya/MObjectHandle.h>
@@ -60,8 +59,6 @@ public:
 	static	void			debugIntersection(const unsigned int index, const MPoint& startPoint, const MPoint& endPoint, const MPoint& center, const double radius, const MPointArray& hit);
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
-	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
-	virtual	MStatus			connectionBroken(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
 
 	virtual	bool			isAbstractClass() const;
 	static  void*			creator();
@@ -99,10 +96,6 @@ public:
 	static	MString			goalCategory;
 
 	static	MTypeId			id;
-
-protected:
-
-			PRS*			prs;
 
 };
 

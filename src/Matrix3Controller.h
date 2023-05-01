@@ -35,22 +35,23 @@ public:
 	static  void*		creator();
 	static  MStatus		initialize();
 
-	virtual	Maxform*	maxformPtr();
-
-public:
-
-	static	MObject		IDENTITY_MATRIX_DATA;
+	virtual	Maxform*	getAssociatedTransform(MStatus* status);
 
 public:
 
 	static	MObject		value;
 	static	MString		valueCategory;
 	
+	static	MString		classification;
 	static	MTypeId		id;
+
+	static	MObject		IDENTITY_MATRIX_DATA;
 
 protected:
 			
-			Maxform*	maxform;
+			MObjectHandle	matrix3Controller;
+			MObjectHandle	maxform;
+
 };
 
 #endif
