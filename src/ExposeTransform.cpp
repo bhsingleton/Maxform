@@ -101,7 +101,7 @@ Only these values should be used when performing computations!
 
 		MMatrix exposeMatrix, localReferenceMatrix;
 
-		if (useTimeOffset && isContextNormal)
+		if (useTimeOffset)
 		{
 
 			// Cache data block at requested time
@@ -192,19 +192,6 @@ Only these values should be used when performing computations!
 
 		MDistance distanceBetween = Maxformations::distanceBetween(localReferenceMatrix, exposeMatrix);
 		MAngle angleBetween = Maxformations::angleBetween(localReferenceMatrix, exposeMatrix);
-
-		// Revert context change made to datablock
-		//
-		if (useTimeOffset)
-		{
-
-			MTime currentTime = MAnimControl::currentTime();
-			MDGContext context = MDGContext(currentTime);
-
-			status = data.setContext(context);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		}
 
 		// Get output data handles
 		//
