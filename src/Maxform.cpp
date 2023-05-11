@@ -327,7 +327,6 @@ Use this function to define any static attributes.
 	Maxform::transform = fnTypedAttr.create("transform", "tf", MFnData::kMatrix, Maxformations::createMatrixData(MTransformationMatrix::identity), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	CHECK_MSTATUS(fnTypedAttr.setKeyable(true));
 	CHECK_MSTATUS(fnTypedAttr.setAffectsWorldSpace(true));
 
 	// Output attributes:
