@@ -173,7 +173,7 @@ Only these values should be used when performing computations!
 
 			// Get weight value
 			//
-			targetWeights[i] = targetWeightHandle.asFloat() / 100.0;
+			targetWeights[i] = Maxformations::clamp(targetWeightHandle.asFloat(), 0.0f, 100.0f) / 100.0;
 
 			// Get curve parameter
 			//
