@@ -50,10 +50,11 @@ public:
 
 	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 	
-	static	std::vector<IKControlSpec>	getJoints(MArrayDataHandle& arrayHandle);
+	static	std::vector<IKControlSpec>	getJoints(MDataBlock& data, MStatus* status);
 	static	double			getChainLength(const std::vector<IKControlSpec>& joints);
-	virtual	MStatus			solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices);
 	static	MStatus			getSplineSamples(const MObject& splineShape, unsigned int numSamples, const double chainLength, MPointArray& samples);
+
+	virtual	MStatus			solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices);
 	static	MStatus			findSolution(const MPointArray& points, const std::vector<IKControlSpec>& joints, MPointArray& solution);
 	static	MPointArray		lineSphereIntersection(const MPoint& startPoint, const MPoint& endPoint, const MPoint& center, const double radius);
 	static	void			debugIntersection(const unsigned int index, const MPoint& startPoint, const MPoint& endPoint, const MPoint& center, const double radius, const MPointArray& hit);

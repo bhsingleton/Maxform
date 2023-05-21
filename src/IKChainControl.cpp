@@ -98,16 +98,10 @@ Only these values should be used when performing computations!
 		MDataHandle enabledHandle = data.inputValue(IKChainControl::enabled, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MDataHandle jointParentMatrixHandle = data.inputValue(IKChainControl::jointParentMatrix, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MArrayDataHandle jointArrayHandle = data.inputArrayValue(IKChainControl::joint, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
 		bool enabled = enabledHandle.asBool();
 
-		MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
-		std::vector<IKControlSpec> joints = IKChainControl::getJoints(jointArrayHandle, jointParentMatrix);
+		std::vector<IKControlSpec> joints = IKChainControl::getJoints(data, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		unsigned int numJoints = static_cast<unsigned int>(joints.size());
 
@@ -166,7 +160,7 @@ Only these values should be used when performing computations!
 			if (useVHTarget)
 			{
 
-				upVector = IKChainControl::getUpVector(joints[0].matrix, vhTarget);
+				upVector = IKChainControl::getUpVector(joints[0].worldMatrix, vhTarget);
 
 			}
 			else
@@ -190,15 +184,17 @@ Only these values should be used when performing computations!
 
 			// Localize solution back into parent space
 			//
-			MMatrixArray offsetMatrices = MMatrixArray(numJoints);
 			MMatrixArray matrices = MMatrixArray(numJoints);
-			MMatrix parentMatrix;
+			MMatrixArray offsetMatrices = MMatrixArray(numJoints);
+
+			MMatrix parentMatrix, offsetRotateMatrix;
 
 			for (unsigned int i = 0; i < numJoints; i++)
 			{
 
-				offsetMatrices[i] = joints[i].offsetRotation.asMatrix() * worldMatrices[i];
-				parentMatrix = (i == 0) ? jointParentMatrix : offsetMatrices[i - 1];
+				offsetRotateMatrix = joints[i].offsetRotation.asMatrix();
+				offsetMatrices[i] = offsetRotateMatrix * worldMatrices[i];
+				parentMatrix = (i > 0) ? offsetMatrices[i - 1] : joints[0].parentMatrix;
 
 				matrices[i] = offsetMatrices[i] * parentMatrix.inverse();
 
@@ -287,7 +283,7 @@ Only these values should be used when performing computations!
 };
 
 
-std::vector<IKControlSpec> IKChainControl::getJoints(MArrayDataHandle& arrayHandle, const MMatrix& parentMatrix)
+std::vector<IKControlSpec> IKChainControl::getJoints(MDataBlock& data, MStatus* status)
 /**
 Returns an array of ik-control specs from the supplied array handle.
 
@@ -296,30 +292,42 @@ Returns an array of ik-control specs from the supplied array handle.
 */
 {
 
-	MStatus status;
-
 	// Presize joint array
 	//
-	unsigned int numElements = arrayHandle.elementCount();
-	std::vector<IKControlSpec> joints = std::vector<IKControlSpec>(numElements);
+	std::vector<IKControlSpec> joints = std::vector<IKControlSpec>();
+
+	MArrayDataHandle jointArrayHandle = data.inputArrayValue(IKChainControl::joint, status);
+	CHECK_MSTATUS_AND_RETURN(*status, joints);
+
+	unsigned int numElements = jointArrayHandle.elementCount(status);
+	CHECK_MSTATUS_AND_RETURN(*status, joints);
+
+	joints.resize(numElements);
+
+	// Get parent matrix
+	//
+	MDataHandle jointParentMatrixHandle = data.inputValue(IKChainControl::jointParentMatrix, status);
+	CHECK_MSTATUS_AND_RETURN(*status, joints);
+
+	MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
 
 	// Iterate through elements
 	//
 	MDataHandle elementHandle, preferredRotationHandle, offsetRotationHandle, matrixHandle;
 	MEulerRotation preferredRotation, offsetRotation;
-	MMatrix matrix;
+	MMatrix matrix, parentMatrix, worldMatrix;
 	double length = 0.0;
 
 	for (unsigned int i = 0; i < numElements; i++)
 	{
 
-		// Go to array element handle
+		// Go to element in array
 		//
-		status = arrayHandle.jumpToArrayElement(i);
-		CHECK_MSTATUS_AND_RETURN(status, joints);
+		*status = jointArrayHandle.jumpToArrayElement(i);
+		CHECK_MSTATUS_AND_RETURN(*status, joints);
 
-		elementHandle = arrayHandle.inputValue(&status);
-		CHECK_MSTATUS_AND_RETURN(status, joints);
+		elementHandle = jointArrayHandle.inputValue(status);
+		CHECK_MSTATUS_AND_RETURN(*status, joints);
 
 		// Get preferred rotation
 		//
@@ -331,48 +339,21 @@ Returns an array of ik-control specs from the supplied array handle.
 		offsetRotationHandle = elementHandle.child(IKChainControl::jointOffsetRotation);
 		offsetRotation = MEulerRotation(offsetRotationHandle.asDouble3());
 
-		// Get joint's transform matrix
+		// Get transform matrices
 		//
 		matrixHandle = elementHandle.child(IKChainControl::jointMatrix);
 		matrix = Maxformations::getMatrixData(matrixHandle.data());
-		length = i > 0 ? Maxformations::matrixToPosition(matrix).length() : 0.0;
+		parentMatrix = (i > 0) ? joints[i - 1].worldMatrix : jointParentMatrix;
+		worldMatrix = matrix * parentMatrix;
+		length = (i > 0) ? Maxformations::distanceBetween(joints[i - 1].worldMatrix, worldMatrix).value() : 0.0;
 
-		if (i == 0)
-		{
-
-			matrix *= parentMatrix;
-
-		}
-
-		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, length };
+		// Initialize control specs
+		//
+		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, worldMatrix, parentMatrix, length };
 
 	}
 
 	return joints;
-
-};
-
-
-MMatrixArray IKChainControl::getMatrices(const std::vector<IKControlSpec>& joints)
-/**
-Returns the matrices from the supplied joint specs.
-
-@param joints: The joint specs to sample from.
-@return: The joint matrices.
-*/
-{
-
-	size_t numJoints = joints.size();
-	MMatrixArray matrices = MMatrixArray(numJoints);
-
-	for (size_t i = 0; i < numJoints; i++)
-	{
-
-		matrices[i] = joints[i].matrix;
-
-	}
-
-	return matrices;
 
 };
 
@@ -440,7 +421,7 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 
 			// Use up-axis vector
 			//
-			return upAxisFlip ? -MVector(joints[0].matrix[upAxis]) : MVector(joints[0].matrix[upAxis]);
+			return upAxisFlip ? -MVector(joints[0].worldMatrix[upAxis]) : MVector(joints[0].worldMatrix[upAxis]);
 
 		}
 		break;
@@ -450,13 +431,10 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 
 			// Get start and end points
 			//
-			MMatrixArray matrices = IKChainControl::getMatrices(joints);
-			MMatrixArray worldMatrices = Maxformations::expandMatrices(matrices);
+			MMatrix startMatrix = joints[0].worldMatrix;
+			MVector startPoint = Maxformations::matrixToPosition(startMatrix);
 
-			MMatrix startMatrix = worldMatrices[0];
-			MVector startPoint = Maxformations::matrixToPosition(worldMatrices[0]);
-
-			MMatrix endMatrix = worldMatrices[numJoints - 1];
+			MMatrix endMatrix = joints[numJoints - 1].worldMatrix;
 			MVector endPoint = Maxformations::matrixToPosition(endMatrix);
 			
 			// Compose aim-vector
@@ -493,11 +471,8 @@ The solution uses the default forward-x and up-y axixes!
 	switch (numItems)
 	{
 
-	case 0:
+	case 0: case 1:
 		return MMatrixArray();
-
-	case 1:
-		return IKChainControl::solve1Bone(ikGoal, upVector, swivelAngle, joints[0], 0.0);
 
 	case 2:
 		return IKChainControl::solve1Bone(ikGoal, upVector, swivelAngle, joints[0], joints[1]);
@@ -509,49 +484,6 @@ The solution uses the default forward-x and up-y axixes!
 		return IKChainControl::solveNBone(ikGoal, upVector, swivelAngle, joints);
 
 	}
-
-};
-
-
-MMatrixArray IKChainControl::solve1Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const double length)
-/**
-Solves a 1-bone system using aim-vector math.
-All matrices are in the transform space of the previous joint.
-The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
-
-@param ikGoal: The IK goal in world space.
-@param upVector: The up vector to orient the joint chain.
-@param swivelAngle: The twist value along the aim vector.
-@param startJoint: The start joint in world space.
-@param endJoint: The end joint in parent space.
-@return: The joint matrices in their respective parent spaces.
-*/
-{
-
-	// Calculate forward vector
-	//
-	MVector startPoint = Maxformations::matrixToPosition(startJoint.matrix);
-	MVector goalPoint = Maxformations::matrixToPosition(ikGoal);
-
-	MVector aimVector = goalPoint - startPoint;
-	MVector forwardVector = aimVector.normal();
-
-	// Calculate axis vectors
-	//
-	MVector xAxis = forwardVector;
-	MVector zAxis = (xAxis ^ upVector).normal();
-	MVector yAxis = (zAxis ^ xAxis).normal();
-
-	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
-	MMatrix aimMatrix = swivelMatrix * Maxformations::composeMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
-
-	// Populate matrix array
-	//
-	MMatrixArray matrices = MMatrixArray(2);
-	matrices[0] = aimMatrix;
-	matrices[1] = Maxformations::createPositionMatrix(length, 0.0, 0.0) * aimMatrix;
-
-	return matrices;
 
 };
 
@@ -571,7 +503,33 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 */
 {
 
-	return IKChainControl::solve1Bone(ikGoal, upVector, swivelAngle, startJoint, endJoint.length);
+	// Calculate forward vector
+	//
+	MVector startPoint = Maxformations::matrixToPosition(startJoint.worldMatrix);
+	MVector goalPoint = Maxformations::matrixToPosition(ikGoal);
+
+	MVector aimVector = goalPoint - startPoint;
+	MVector forwardVector = aimVector.normal();
+
+	// Calculate axis vectors
+	//
+	MVector xAxis = forwardVector;
+	MVector zAxis = (xAxis ^ upVector).normal();
+	MVector yAxis = (zAxis ^ xAxis).normal();
+
+	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
+	MMatrix aimMatrix = Maxformations::composeMatrix(xAxis, yAxis, zAxis, MPoint(startPoint));
+
+	MMatrix startMatrix = swivelMatrix * aimMatrix;
+	MMatrix endMatrix = Maxformations::createPositionMatrix(endJoint.length, 0.0, 0.0) * startMatrix;
+
+	// Populate matrix array
+	//
+	MMatrixArray matrices = MMatrixArray(2);
+	matrices[0] = Maxformations::createScaleMatrix(startJoint.worldMatrix) * startMatrix;
+	matrices[1] = Maxformations::createScaleMatrix(endJoint.worldMatrix) * endMatrix;
+
+	return matrices;
 
 };
 
@@ -603,7 +561,7 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 
 	// Calculate aim vector
 	//
-	MVector origin = Maxformations::matrixToPosition(startJoint.matrix);
+	MVector origin = Maxformations::matrixToPosition(startJoint.worldMatrix);
 	MVector goalPoint = Maxformations::matrixToPosition(ikGoal);
 	MVector aimVector = goalPoint - origin;
 
@@ -648,15 +606,15 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 	// Compose matrices
 	//
 	MMatrix startMatrix = Maxformations::createRotationMatrix(0.0, 0.0, startRadian, Maxformations::AxisOrder::xyz) * twistMatrix;
-	MMatrix midMatrix = (Maxformations::createRotationMatrix(0.0, 0.0, -(M_PI - endRadian), Maxformations::AxisOrder::xyz) * Maxformations::createPositionMatrix(startLength, 0.0, 0.0) * startMatrix);
+	MMatrix midMatrix = Maxformations::createRotationMatrix(0.0, 0.0, -(M_PI - endRadian), Maxformations::AxisOrder::xyz) * Maxformations::createPositionMatrix(startLength, 0.0, 0.0) * startMatrix;
 	MMatrix endMatrix = Maxformations::createPositionMatrix(endLength, 0.0, 0.0) * midMatrix;
 
 	// Populate matrix array
 	//
 	MMatrixArray matrices = MMatrixArray(3);
-	matrices[0] = startMatrix;
-	matrices[1] = midMatrix;
-	matrices[2] = endMatrix;
+	matrices[0] = Maxformations::createScaleMatrix(startJoint.worldMatrix) * startMatrix;
+	matrices[1] = Maxformations::createScaleMatrix(midJoint.worldMatrix) * midMatrix;
+	matrices[2] = Maxformations::createScaleMatrix(endJoint.worldMatrix) * endMatrix;
 
 	return matrices;
 

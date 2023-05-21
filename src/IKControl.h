@@ -41,8 +41,10 @@ struct IKControlSpec
 {
 
 	MEulerRotation preferredRotation = MEulerRotation::identity;  // Default rest pose
-	MEulerRotation offsetRotation = MEulerRotation::identity;  // Offset rotation
+	MEulerRotation offsetRotation = MEulerRotation::identity;  // Local offset rotation
 	MMatrix matrix = MMatrix::identity;  // Local transform matrix
+	MMatrix worldMatrix = MMatrix::identity;  // World transform matrix
+	MMatrix parentMatrix = MMatrix::identity;  // Parent transform matrix
 	double length = 0.0;  // Length of bone
 
 };

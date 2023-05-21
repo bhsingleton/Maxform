@@ -102,24 +102,14 @@ Only these values should be used when performing computations!
 
 		bool enabled = enabledHandle.asBool();
 
-		MArrayDataHandle jointArrayHandle = data.inputArrayValue(SplineIKChainControl::joint, &status);
+		std::vector<IKControlSpec> joints = SplineIKChainControl::getJoints(data, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		std::vector<IKControlSpec> joints = SplineIKChainControl::getJoints(jointArrayHandle);
 		unsigned int numJoints = static_cast<unsigned int>(joints.size());
 
 		if (enabled && numJoints >= 2)
 		{
 			
-			// Modify transform space on start joint
-			//
-			MDataHandle jointParentMatrixHandle = data.inputValue(SplineIKChainControl::jointParentMatrix, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
-
-			joints[0].matrix *= jointParentMatrix;
-
 			// Get input handles
 			//
 			MDataHandle ikParentMatrixHandle = data.inputValue(SplineIKChainControl::ikParentMatrix, &status);
@@ -199,13 +189,19 @@ Only these values should be used when performing computations!
 			// Localize solution back into parent space
 			//
 			MMatrixArray matrices = MMatrixArray(numJoints);
-			MMatrix parentMatrix;
+			MMatrixArray offsetMatrices = MMatrixArray(numJoints);
+
+			MMatrix parentMatrix, offsetRotateMatrix, scaleMatrix;
 
 			for (unsigned int i = 0; i < numJoints; i++)
 			{
 
-				parentMatrix = (i == 0) ? jointParentMatrix : worldMatrices[i - 1];
-				matrices[i] = (joints[i].offsetRotation.asMatrix() * worldMatrices[i]) * parentMatrix.inverse();
+				scaleMatrix = Maxformations::createScaleMatrix(joints[i].worldMatrix);
+				offsetRotateMatrix = joints[i].offsetRotation.asMatrix();
+				offsetMatrices[i] = scaleMatrix * offsetRotateMatrix * worldMatrices[i];
+				parentMatrix = (i > 0) ? offsetMatrices[i - 1] : joints[0].parentMatrix;
+
+				matrices[i] = offsetMatrices[i] * parentMatrix.inverse();
 
 			}
 
@@ -292,7 +288,7 @@ Only these values should be used when performing computations!
 };
 
 
-std::vector<IKControlSpec> SplineIKChainControl::getJoints(MArrayDataHandle& arrayHandle)
+std::vector<IKControlSpec> SplineIKChainControl::getJoints(MDataBlock& data, MStatus* status)
 /**
 Returns an array of ik-control specs from the supplied array handle.
 
@@ -301,40 +297,64 @@ Returns an array of ik-control specs from the supplied array handle.
 */
 {
 
-	MStatus status;
-
 	// Presize joint array
 	//
-	unsigned int numElements = arrayHandle.elementCount();
-	std::vector<IKControlSpec> joints = std::vector<IKControlSpec>(numElements);
+	std::vector<IKControlSpec> joints = std::vector<IKControlSpec>();
+
+	MArrayDataHandle jointArrayHandle = data.inputArrayValue(SplineIKChainControl::joint, status);
+	CHECK_MSTATUS_AND_RETURN(*status, joints);
+
+	unsigned int numElements = jointArrayHandle.elementCount(status);
+	CHECK_MSTATUS_AND_RETURN(*status, joints);
+
+	joints.resize(numElements);
+
+	// Get parent matrix
+	//
+	MDataHandle jointParentMatrixHandle = data.inputValue(SplineIKChainControl::jointParentMatrix, status);
+	CHECK_MSTATUS_AND_RETURN(*status, joints);
+
+	MMatrix jointParentMatrix = Maxformations::getMatrixData(jointParentMatrixHandle.data());
 
 	// Iterate through elements
 	//
 	MDataHandle elementHandle, preferredRotationHandle, offsetRotationHandle, matrixHandle;
 	MEulerRotation preferredRotation, offsetRotation;
-	MMatrix matrix;
+	MMatrix matrix, parentMatrix, worldMatrix;
 	double length = 0.0;
 
 	for (unsigned int i = 0; i < numElements; i++)
 	{
 
-		status = arrayHandle.jumpToArrayElement(i);
-		CHECK_MSTATUS_AND_RETURN(status, joints);
+		// Go to element in array
+		//
+		*status = jointArrayHandle.jumpToArrayElement(i);
+		CHECK_MSTATUS_AND_RETURN(*status, joints);
 
-		elementHandle = arrayHandle.inputValue(&status);
-		CHECK_MSTATUS_AND_RETURN(status, joints);
+		elementHandle = jointArrayHandle.inputValue(status);
+		CHECK_MSTATUS_AND_RETURN(*status, joints);
 
+		// Get preferred rotation
+		//
 		preferredRotationHandle = elementHandle.child(SplineIKChainControl::jointPreferredRotation);
 		preferredRotation = MEulerRotation(preferredRotationHandle.asDouble3());
 
+		// Get offset rotation
+		//
 		offsetRotationHandle = elementHandle.child(SplineIKChainControl::jointOffsetRotation);
 		offsetRotation = MEulerRotation(offsetRotationHandle.asDouble3());
 
-		matrixHandle = elementHandle.child(SplineIKChainControl::jointMatrix);
+		// Get transform matrices
+		//
+		matrixHandle = elementHandle.child(IKChainControl::jointMatrix);
 		matrix = Maxformations::getMatrixData(matrixHandle.data());
-		length = i > 0 ? Maxformations::matrixToPosition(matrix).length() : 0.0;
+		parentMatrix = (i > 0) ? joints[i - 1].worldMatrix : jointParentMatrix;
+		worldMatrix = matrix * parentMatrix;
+		length = (i > 0) ? Maxformations::distanceBetween(joints[i - 1].worldMatrix, worldMatrix).value() : 0.0;
 
-		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, length };
+		// Initialize control specs
+		//
+		joints[i] = IKControlSpec{ preferredRotation, offsetRotation, matrix, worldMatrix, parentMatrix, length };
 		
 	}
 
@@ -363,63 +383,6 @@ Returns the length of the supplied joint chain.
 	}
 
 	return length;
-
-};
-
-
-MStatus SplineIKChainControl::solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices)
-/**
-Returns a multi-pass solution for the supplied joint chain.
-The first pass maps the bone length along the curve.
-The second pass attempts to refine the position by incrementing along the curve using the excess bone length.
-The solution uses the default forward-x and up-y axes!
-
-@param splineShape: The curve to sample from.
-@param upVector: The up-vector used to orient the joint chain.
-@param startTwistAngle: The twist value at the start of the curve.
-@param endTwistAngle: The twist value at the end of the curve.
-@param joints: The joints in their respective parent spaces.
-@param matrices: The passed array to populate with world-matrices.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Check if there are enough joints
-	//
-	unsigned int numJoints = static_cast<unsigned int>(joints.size());
-
-	if (!(numJoints > 2))
-	{
-
-		return MS::kFailure;
-
-	}
-
-	// Get spline samples
-	//
-	double chainLength = SplineIKChainControl::getChainLength(joints);
-
-	MPointArray samples;
-
-	status = SplineIKChainControl::getSplineSamples(splineShape, numJoints, chainLength, samples);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Build matrix array from points and up-vector
-	//
-	MPointArray solution;
-
-	status = SplineIKChainControl::findSolution(samples, joints, solution);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = Maxformations::createAimMatrix(solution, 0, false, upVector, 1, false, matrices);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = Maxformations::twistMatrices(matrices, 0, startTwistAngle, endTwistAngle);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	return MS::kSuccess;
 
 };
 
@@ -482,6 +445,63 @@ The first half of samples consists of points along the curve and the second half
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	samples[sampleCount] = samples[sampleCount - 1] + (tangent.normal() * chainLength);
+
+	return MS::kSuccess;
+
+};
+
+
+MStatus SplineIKChainControl::solve(const MObject& splineShape, const MVector& upVector, const MAngle& startTwistAngle, const MAngle& endTwistAngle, const std::vector<IKControlSpec>& joints, MMatrixArray& matrices)
+/**
+Returns a multi-pass solution for the supplied joint chain.
+The first pass maps the bone length along the curve.
+The second pass attempts to refine the position by incrementing along the curve using the excess bone length.
+The solution uses the default forward-x and up-y axes!
+
+@param splineShape: The curve to sample from.
+@param upVector: The up-vector used to orient the joint chain.
+@param startTwistAngle: The twist value at the start of the curve.
+@param endTwistAngle: The twist value at the end of the curve.
+@param joints: The joints in their respective parent spaces.
+@param matrices: The passed array to populate with world-matrices.
+@return: Return status.
+*/
+{
+
+	MStatus status;
+
+	// Check if there are enough joints
+	//
+	unsigned int numJoints = static_cast<unsigned int>(joints.size());
+
+	if (!(numJoints > 2))
+	{
+
+		return MS::kFailure;
+
+	}
+
+	// Get spline samples
+	//
+	double chainLength = SplineIKChainControl::getChainLength(joints);
+
+	MPointArray samples;
+
+	status = SplineIKChainControl::getSplineSamples(splineShape, numJoints, chainLength, samples);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Build matrix array from points and up-vector
+	//
+	MPointArray solution;
+
+	status = SplineIKChainControl::findSolution(samples, joints, solution);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::createAimMatrix(solution, 0, false, upVector, 1, false, matrices);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = Maxformations::twistMatrices(matrices, 0, startTwistAngle, endTwistAngle);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return MS::kSuccess;
 
