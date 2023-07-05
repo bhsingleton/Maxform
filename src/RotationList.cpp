@@ -86,7 +86,7 @@ Only these values should be used when performing computations!
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		MMatrix matrix = quat.asMatrix();
-		MVector eulerAngles = Maxformations::matrixToEulerAngles(matrix, Maxformations::AxisOrder::xyz);
+		MEulerRotation eulerAngles = Maxformations::matrixToEulerRotation(matrix, MEulerRotation::RotationOrder::kXYZ);
 
 		// Get output data handles
 		//
@@ -107,13 +107,13 @@ Only these values should be used when performing computations!
 
 		// Set output handle values
 		//
-		valueXHandle.setDouble(eulerAngles.x);
+		valueXHandle.setMAngle(MAngle(eulerAngles.x));
 		valueXHandle.setClean();
 
-		valueYHandle.setDouble(eulerAngles.y);
+		valueYHandle.setMAngle(MAngle(eulerAngles.y));
 		valueYHandle.setClean();
 
-		valueZHandle.setDouble(eulerAngles.z);
+		valueZHandle.setMAngle(MAngle(eulerAngles.z));
 		valueZHandle.setClean();
 
 		matrixHandle.setMMatrix(matrix);
@@ -155,7 +155,7 @@ Only these values should be used when performing computations!
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		MMatrix matrix = quat.asMatrix();
-		MVector eulerAngles = Maxformations::matrixToEulerAngles(matrix, Maxformations::AxisOrder::xyz);
+		MEulerRotation eulerAngles = Maxformations::matrixToEulerRotation(matrix, MEulerRotation::RotationOrder::kXYZ);
 
 		// Get output data handles
 		//
@@ -170,13 +170,13 @@ Only these values should be used when performing computations!
 
 		// Set output handle preValues
 		//
-		preValueXHandle.setDouble(eulerAngles.x);
+		preValueXHandle.setMAngle(MAngle(eulerAngles.x));
 		preValueXHandle.setClean();
 
-		preValueYHandle.setDouble(eulerAngles.y);
+		preValueYHandle.setMAngle(MAngle(eulerAngles.y));
 		preValueYHandle.setClean();
 
-		preValueZHandle.setDouble(eulerAngles.z);
+		preValueZHandle.setMAngle(MAngle(eulerAngles.z));
 		preValueZHandle.setClean();
 
 		// Mark plug as clean
