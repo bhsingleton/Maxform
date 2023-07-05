@@ -38,7 +38,9 @@
 #include <maya/MFileIO.h>
 #include <maya/MTypeId.h> 
 #include <maya/MGlobal.h>
+
 #include <math.h>
+#include <map>
 
 
 class ExposeTransform : public Maxform
@@ -52,6 +54,7 @@ public:
 	virtual MStatus			compute(const MPlug& plug, MDataBlock& data);
 
 	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& dataHandle);
+	virtual	MStatus			getCachedMatrices(const MTime& time, MMatrix& exposeMatrix, MMatrix& localReferenceMatrix);
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
 	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
@@ -99,12 +102,15 @@ public:
 	
 private:
 
+	virtual	MStatus			updateExposeMatrix();
+	virtual MStatus			updateLocalReferenceMatrix();
+
 			MObjectHandle	exposeHandle;
 			MObjectHandle	localReferenceHandle;
 			bool			parentEnabled;
 
-	virtual	MStatus			updateExposeMatrix();
-	virtual MStatus			updateLocalReferenceMatrix();
+			std::map<unsigned int, MMatrix>	exposeMatrices;
+			std::map<unsigned int, MMatrix>	localReferenceMatrices;
 
 };
 

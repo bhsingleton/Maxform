@@ -87,7 +87,43 @@ Only these values should be used when performing computations!
 	if (fnAttribute.hasCategory(ExposeTransform::exposeCategory))
 	{
 
-		// Evaluate user context
+		// Get current time
+		//
+		MDGContext currentContext = data.context(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MTime currentTime;
+
+		if (currentContext.isNormal())
+		{
+
+			currentTime = MAnimControl::currentTime();
+
+		}
+		else
+		{
+
+			status = currentContext.getTime(currentTime);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		}
+
+		// Cache expose matrix
+		//
+		MDataHandle exposeMatrixHandle = data.inputValue(ExposeTransform::exposeMatrix, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle localReferenceMatrixHandle = data.inputValue(ExposeTransform::localReferenceMatrix, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		unsigned int currentFrame = std::round(currentTime.value());
+		MMatrix exposeMatrix = exposeMatrixHandle.asMatrix();
+		MMatrix localReferenceMatrix = localReferenceMatrixHandle.asMatrix();
+
+		this->exposeMatrices[currentFrame] = exposeMatrix;
+		this->localReferenceMatrices[currentFrame] = localReferenceMatrix;
+
+		// Evaluate time offset
 		//
 		MDataHandle useTimeOffsetHandle = data.inputValue(ExposeTransform::useTimeOffset, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -97,50 +133,16 @@ Only these values should be used when performing computations!
 
 		bool useTimeOffset = useTimeOffsetHandle.asBool();
 		MTime timeOffset = timeOffsetHandle.asTime();
-		bool isContextNormal = data.context().isNormal();
-
-		MMatrix exposeMatrix, localReferenceMatrix;
 
 		if (useTimeOffset)
 		{
 
-			// Cache data block at requested time
+			// Get matrices at offset time
 			//
-			MTime currentTime = MAnimControl::currentTime();
-			MDGContext context = MDGContext(currentTime + timeOffset);
-			MDGContextGuard contextGuard(context);
+			MTime offsetTime = currentTime + timeOffset;
 
-			MDataBlock otherData = this->forceCache();
-
-			// Get input data handles
-			//
-			MDataHandle exposeMatrixHandle = otherData.inputValue(ExposeTransform::exposeMatrix, &status);
+			status = this->getCachedMatrices(offsetTime, exposeMatrix, localReferenceMatrix);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			MDataHandle localReferenceMatrixHandle = otherData.inputValue(ExposeTransform::localReferenceMatrix, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			// Get values from handles
-			//
-			exposeMatrix = exposeMatrixHandle.asMatrix();
-			localReferenceMatrix = localReferenceMatrixHandle.asMatrix();
-
-		}
-		else
-		{
-
-			// Get input data handles
-			//
-			MDataHandle exposeMatrixHandle = data.inputValue(ExposeTransform::exposeMatrix, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			MDataHandle localReferenceMatrixHandle = data.inputValue(ExposeTransform::localReferenceMatrix, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			// Get values from handles
-			//
-			exposeMatrix = exposeMatrixHandle.asMatrix();
-			localReferenceMatrix = localReferenceMatrixHandle.asMatrix();
 
 		}
 
@@ -332,6 +334,37 @@ Another use for this method is to impose attribute limits.
 	}
 
 	return Maxform::setInternalValue(plug, handle);
+
+};
+
+
+MStatus ExposeTransform::getCachedMatrices(const MTime& time, MMatrix& exposeMatrix, MMatrix& localReferenceMatrix)
+/**
+Returns the expose and local reference matrix, at the specified time, from the internal cache.
+
+@param time: Get the matrices at this time.
+@param exposeMatrix: The passed expose matrix to populate.
+@param localReferenceMatrix: The passed local reference matrix to populate.
+@return: Status code.
+*/
+{
+
+	MStatus status;
+
+	// Check if time exists inside cache
+	//
+	unsigned int frame = std::round(time.value());
+	bool hasMatrix = this->exposeMatrices.find(frame) != this->exposeMatrices.end();
+
+	if (hasMatrix)
+	{
+
+		exposeMatrix = this->exposeMatrices[frame];
+		localReferenceMatrix = this->localReferenceMatrices[frame];
+
+	}
+
+	return status;
 
 };
 
