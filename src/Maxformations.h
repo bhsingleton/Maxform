@@ -39,6 +39,8 @@
 namespace Maxformations
 {
 
+	const double TOLERANCE = 1e-3;
+
 	enum class AxisOrder
 	{
 
@@ -151,9 +153,10 @@ namespace Maxformations
 	MStatus			reorientMatrices(MMatrixArray& matrices, const int forwardAxis, const bool forwardAxisFlip, const int upAxis, const bool upAxisFlip);
 
 	MVector			matrixToPosition(const MMatrix& matrix);
+	MVectorArray	matrixToPosition(const MMatrixArray& matrices);
 
 	MEulerRotation::RotationOrder	axisToRotationOrder(const AxisOrder axisOrder);
-	AxisOrder						rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
+	AxisOrder		rotationToAxisOrder(const MEulerRotation::RotationOrder rotationOrder);
 
 	MVector			matrixToEulerXYZ(const MMatrix& matrix);
 	MVector			matrixToEulerXZY(const MMatrix& matrix);
@@ -177,19 +180,23 @@ namespace Maxformations
 	MMatrix			slerp(const MMatrix& startMatrix, const MMatrix& endMatrix, const float weight);
 
 	MVector			matrixToScale(const MMatrix& matrix);
+	MVectorArray	matrixToScale(const MMatrixArray& matrices);
 
-	float			sum(const MFloatArray& items);
 	unsigned int	sum(const MIntArray& items);
-	MFloatArray		clamp(const MFloatArray& items);
+	float			sum(const MFloatArray& items);
+	double			sum(const MDoubleArray& items);
+
+	MFloatArray		normalize(const MFloatArray& items);
+	MIntArray		nonZeroes(const MFloatArray& items);
 	MMatrix			blendMatrices(const MMatrix& startMatrix, const MMatrix& endMatrix, const float weight);
 	MMatrix			blendMatrices(const MMatrix& restMatrix, const MMatrixArray& matrices, const MFloatArray& weights);
 
 	MDistance		distanceBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 	MAngle			angleBetween(const MMatrix& startMatrix, const MMatrix& endMatrix);
 
-	MObject					createMatrixData(const MMatrix& matrix);
-	MObject					createMatrixData(const MTransformationMatrix& transform);
-	MMatrix					getMatrixData(const MObject& matrixData);
+	MObject			createMatrixData(const MMatrix& matrix);
+	MObject			createMatrixData(const MTransformationMatrix& transform);
+	MMatrix			getMatrixData(const MObject& matrixData);
 	MTransformationMatrix	getTransformData(const MObject& matrixData);
 
 	MStatus			resetMatrixPlug(MPlug& plug);
@@ -210,6 +217,10 @@ namespace Maxformations
 
 	bool			isSceneLoading();
 	MVector			getSceneUpVector();
+
+	MString			stringify(const MVector& vector);
+	MString			stringify(const MPoint& point);
+	MString			stringify(const MMatrix& matrix);
 
 };
 #endif

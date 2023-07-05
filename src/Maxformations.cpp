@@ -899,6 +899,29 @@ namespace Maxformations
 
 	};
 
+	MVectorArray matrixToPosition(const MMatrixArray& matrices)
+	/**
+	Extracts the position components from the supplied transform matrices.
+
+	@param matrices: The transform matrices to extract from.
+	@return: The position values.
+	*/
+	{
+
+		unsigned int matrixCount = matrices.length();
+		MVectorArray positions = MVectorArray(matrixCount);
+
+		for (unsigned int i = 0; i < matrixCount; i++)
+		{
+
+			positions[i] = Maxformations::matrixToPosition(matrices[i]);
+
+		}
+
+		return positions;
+
+	};
+
 	MDistance distanceBetween(const MMatrix& startMatrix, const MMatrix& endMatrix)
 	/**
 	Evaluates the distance between the two matrices.
@@ -1545,6 +1568,16 @@ namespace Maxformations
 	*/
 	{
 
+		bool isZero = Maxformations::isClose(0.0f, weight, Maxformations::TOLERANCE);
+		bool isOne = Maxformations::isClose(weight, 1.0f, Maxformations::TOLERANCE);
+
+		if (isZero || isOne)
+		{
+
+			return isZero ? startQuat : endQuat;
+
+		}
+
 		MQuaternion q1 = MQuaternion(startQuat);
 		MQuaternion q2 = MQuaternion(endQuat);
 
@@ -1596,10 +1629,10 @@ namespace Maxformations
 	{
 
 		MQuaternion startQuat;
-		startQuat = startMatrix;
+		startQuat = Maxformations::createRotationMatrix(startMatrix);
 
 		MQuaternion endQuat;
-		endQuat = endMatrix;
+		endQuat = Maxformations::createRotationMatrix(endMatrix);
 
 		return Maxformations::slerp(startQuat, endQuat, weight).asMatrix();
 
@@ -1640,6 +1673,29 @@ namespace Maxformations
 
 	};
 
+	MVectorArray matrixToScale(const MMatrixArray& matrices)
+	/**
+	Extracts the scale components from the supplied transform matrices.
+
+	@param matrices: The transform matrices to extract from.
+	@return: The scale values.
+	*/
+	{
+
+		unsigned int matrixCount = matrices.length();
+		MVectorArray scales = MVectorArray(matrixCount);
+
+		for (unsigned int i = 0; i < matrixCount; i++)
+		{
+
+			scales[i] = Maxformations::matrixToScale(matrices[i]);
+
+		}
+
+		return scales;
+
+	};
+
 	float sum(const MFloatArray& items)
 	/**
 	Calculates the sum of all the supplied items.
@@ -1653,6 +1709,31 @@ namespace Maxformations
 		//
 		unsigned int numItems = items.length();
 		float sum = 0.0;
+
+		for (unsigned int i = 0; i < numItems; i++)
+		{
+
+			sum += items[i];
+
+		}
+
+		return sum;
+
+	};
+
+	double sum(const MDoubleArray& items)
+		/**
+		Calculates the sum of all the supplied items.
+
+		@param items: The items to add up.
+		@return: The total sum.
+		*/
+	{
+
+		// Iterate through numbers
+		//
+		unsigned int numItems = items.length();
+		double sum = 0.0;
 
 		for (unsigned int i = 0; i < numItems; i++)
 		{
@@ -1690,9 +1771,9 @@ namespace Maxformations
 
 	};
 
-	MFloatArray clamp(const MFloatArray& items)
+	MFloatArray normalize(const MFloatArray& items)
 	/**
-	Clamps the supplied items so they don't exceed 100.
+	Normalizes the supplied items so they don't exceed 1.
 	Anything below that is left alone and compensated for using the rest matrix.
 
 	@param items: The float array containing the weighted averages.
@@ -1703,8 +1784,9 @@ namespace Maxformations
 		// Check if weights require clamping
 		//
 		float sum = Maxformations::sum(items);
+		bool isOne = Maxformations::isClose(sum, 1.0f, Maxformations::TOLERANCE);
 
-		if (sum < 1.0f)
+		if (isOne)
 		{
 
 			return MFloatArray(items);
@@ -1715,10 +1797,10 @@ namespace Maxformations
 		//
 		float fraction = 1.0f / sum;
 
-		unsigned int numItems = items.length();
-		MFloatArray normalizedItems = MFloatArray(numItems);
+		unsigned int itemCount = items.length();
+		MFloatArray normalizedItems = MFloatArray(itemCount);
 
-		for (unsigned int i = 0; i < numItems; i++)
+		for (unsigned int i = 0; i < itemCount; i++)
 		{
 
 			normalizedItems[i] = items[i] * fraction;
@@ -1726,6 +1808,38 @@ namespace Maxformations
 		}
 
 		return normalizedItems;
+
+	};
+
+	MIntArray nonZeroes(const MFloatArray& items)
+	/**
+	Returns the indices of any non-zero items.
+
+	@param items: The items to evaluate.
+	@return: An array of non-zero indices.
+	*/
+	{
+
+		MIntArray indices = MIntArray();
+		unsigned int itemCount = items.length();
+
+		bool isZero;
+
+		for (unsigned int i = 0; i < itemCount; i++)
+		{
+
+			isZero = Maxformations::isClose(0.0f, items[i], Maxformations::TOLERANCE);
+
+			if (!isZero)
+			{
+
+				indices.append(i);
+
+			}
+
+		}
+
+		return indices;
 
 	};
 
@@ -1756,7 +1870,18 @@ namespace Maxformations
 
 		// Check matrices require blending
 		//
-		if (0.0f < weight && weight < 1.0f)
+		bool isZero = Maxformations::isClose(0.0f, weight, Maxformations::TOLERANCE);
+		bool isOne = Maxformations::isClose(weight, 1.0f, Maxformations::TOLERANCE);
+
+		if (isZero || isOne)
+		{
+
+			// Return start or end matrix
+			//
+			return isZero ? startMatrix : endMatrix;
+
+		}
+		else
 		{
 
 			// Decompose transform matrices
@@ -1781,12 +1906,6 @@ namespace Maxformations
 			MMatrix scaleMatrix = Maxformations::createScaleMatrix(scale);
 
 			return scaleMatrix * rotateMatrix * translateMatrix;
-
-		}
-		else
-		{
-
-			return (weight == 0.0f) ? startMatrix : endMatrix;
 
 		}
 
@@ -1847,18 +1966,34 @@ namespace Maxformations
 
 				// Evaluate weight sum
 				//
-				MFloatArray normalizedWeights = Maxformations::clamp(weights);
+				MFloatArray normalizedWeights = Maxformations::normalize(weights);
 				float weightSum = Maxformations::sum(normalizedWeights);
 
-				if (0.0f < weightSum && weightSum <= 1.0f)
+				bool isOne = Maxformations::isClose(weightSum, 1.0f, Maxformations::TOLERANCE);
+
+				if (isOne)
 				{
 
-					// Lerp through matrices
+					// Evaluate non-zero weights
 					//
-					MMatrix matrix = MMatrix(matrices[0]);
-					unsigned int numMatrices = matrices.length();
+					MIntArray indices = Maxformations::nonZeroes(weights);
+					unsigned int indexCount = indices.length();
 
-					for (unsigned int i = 1; i < numMatrices; i++)
+					if (indexCount == 0)
+					{
+
+						return MMatrix(restMatrix);  // This should never happen but you never know...
+
+					}
+
+					// Blend weighted matrices
+					//
+					unsigned int startIndex = indices[0];
+					MMatrix matrix = matrices[startIndex];
+
+					unsigned int matrixCount = matrices.length();
+
+					for (unsigned int i = (startIndex + 1); i < matrixCount; i++)
 					{
 
 						matrix = Maxformations::blendMatrices(matrix, matrices[i], normalizedWeights[i]);
@@ -2800,5 +2935,79 @@ namespace Maxformations
 		return upVector;
 
 	};
+
+	MString stringify(const MVector& vector)
+	/**
+	Converts the supplied vector into a string.
+
+	@param vector: The vector to stringify.
+	@return: Stringified vector.
+	*/
+	{
+
+		MString string;
+		string += "{";
+		string += vector.x;
+		string += ", ";
+		string += vector.y;
+		string += ", ";
+		string += vector.z;
+		string += "}";
+
+		return string;
+
+	}
+
+	MString stringify(const MPoint& point)
+	/**
+	Converts the supplied point into a string.
+
+	@param point: The point to stringify.
+	@return: Stringified point.
+	*/
+	{
+
+		MString string;
+		string += "{";
+		string += point.x;
+		string += ", ";
+		string += point.y;
+		string += ", ";
+		string += point.z;
+		string += ", ";
+		string += point.w;
+		string += "}";
+
+		return string;
+
+	}
+
+	MString stringify(const MMatrix& matrix)
+	/**
+	Converts the supplied matrix into a string.
+
+	@param matrix: The matrix to stringify.
+	@return: Stringified matrix.
+	*/
+	{
+
+		MVector xAxis, yAxis, zAxis;
+		MPoint position;
+		Maxformations::breakMatrix(matrix, xAxis, yAxis, zAxis, position);
+
+		MString string;
+		string += "{";
+		string += Maxformations::stringify(xAxis);
+		string += ", ";
+		string += Maxformations::stringify(yAxis);
+		string += ", ";
+		string += Maxformations::stringify(zAxis);
+		string += ", ";
+		string += Maxformations::stringify(position);
+		string += "}";
+
+		return string;
+
+	}
 
 };
