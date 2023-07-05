@@ -397,7 +397,7 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 @param joint: The FK joint chain.
 @param upAxis: The up-axis for the joint chain.
 @param upAxisFlip: Determines if the up-axis is flipped.
-@return: The best VH target matrix.
+@return: The best VH target vector.
 */
 {
 
@@ -406,7 +406,7 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 	switch (numJoints)
 	{
 
-		case 0:
+		case 0: case 1:
 		{
 
 			// Default to scene up-vector
@@ -416,12 +416,27 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 		}
 		break;
 
-		case 1: case 2:
+		case 2:
 		{
 
 			// Use up-axis vector
 			//
-			return upAxisFlip ? -MVector(joints[0].worldMatrix[upAxis]) : MVector(joints[0].worldMatrix[upAxis]);
+			MVector upVector = MVector(joints[0].worldMatrix[upAxis]).normal();
+			return upAxisFlip ? -upVector : upVector;
+
+		}
+		break;
+
+		case 3:
+		{
+
+			// Average up-axis vectors
+			//
+			MVector startVector = MVector(joints[0].worldMatrix[upAxis]);
+			MVector endVector = MVector(joints[1].worldMatrix[upAxis]);
+			MVector upVector = ((startVector * 0.5) + (endVector * 0.5)).normal();
+
+			return upAxisFlip ? -upVector : upVector;
 
 		}
 		break;
@@ -429,21 +444,7 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 		default:
 		{
 
-			// Get start and end points
-			//
-			MMatrix startMatrix = joints[0].worldMatrix;
-			MVector startPoint = Maxformations::matrixToPosition(startMatrix);
-
-			MMatrix endMatrix = joints[numJoints - 1].worldMatrix;
-			MVector endPoint = Maxformations::matrixToPosition(endMatrix);
-			
-			// Compose aim-vector
-			//
-			MVector forwardVector = (endPoint - startPoint).normal();
-			MVector upVector = upAxisFlip ? -MVector(startMatrix[upAxis]) : MVector(startMatrix[upAxis]);
-			MVector rightVector = (forwardVector ^ upVector).normal();
-
-			return (rightVector ^ forwardVector).normal();
+			return IKChainControl::guessUpVector(joints);
 
 		}
 		break;
@@ -453,16 +454,85 @@ Returns the best up-vector that could be used from the supplied joint matrices.
 };
 
 
+MVector IKChainControl::guessUpVector(const std::vector<IKControlSpec>& joints)
+/**
+Returns the best up-vector that could be used from the supplied joint matrices.
+
+@param joint: The FK joint chain.
+@return: The best VH target vector.
+*/
+{
+
+	// Check if there are enough joints
+	//
+	size_t jointCount = joints.size();
+
+	if (!(jointCount >= 3))
+	{
+
+		return MVector::zero;
+
+	}
+
+	// Get forward-vector
+	//
+	size_t lastIndex = jointCount - 1;
+
+	MVector origin = Maxformations::matrixToPosition(joints[0].worldMatrix);
+	MVector end = Maxformations::matrixToPosition(joints[lastIndex].worldMatrix);
+
+	MVector forwardVector = (end - origin).normal();
+
+	// Calculate right-vector
+	//
+	double weight = 1.0 / static_cast<double>(lastIndex);
+
+	MVector point, nextVector, rightVector, average;
+	bool flipped;
+
+	for (size_t i = 1; i < jointCount; i++)
+	{
+
+		point = Maxformations::matrixToPosition(joints[i].worldMatrix);
+		nextVector = (point - origin).normal();
+
+		rightVector = (forwardVector ^ nextVector).normal();
+		
+		if (i == 1)
+		{
+
+			average += (rightVector * weight);
+
+		}
+		else
+		{
+
+			flipped = (rightVector * average) < 0.0;
+			average += flipped ? -(rightVector * weight) : (rightVector * weight);
+
+		}
+
+	}
+
+	// Calculate up-vector
+	//
+	MVector upVector = (average.normal() ^ forwardVector).normal();
+
+	return upVector;
+
+};
+
+
 MMatrixArray IKChainControl::solve(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints)
 /**
-Returns a solution for the supplied joint matrices.
-The solution uses the default forward-x and up-y axixes!
+Returns an IK solution for the supplied joint chain.
+The solution uses the default forward-x and up-y axixes in world-space!
 
 @param ikGoal: The IK goal in world space.
 @param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
 @param joints: The joints in their respective parent spaces.
-@return: The joint matrices in their respective parent spaces.
+@return: The IK solution.
 */
 {
 
@@ -481,7 +551,7 @@ The solution uses the default forward-x and up-y axixes!
 		return IKChainControl::solve2Bone(ikGoal, upVector, swivelAngle, joints[0], joints[1], joints[2]);
 
 	default:
-		return IKChainControl::solveNBone(ikGoal, upVector, swivelAngle, joints);
+		return IKChainControl::solveNBone(ikGoal, upVector, swivelAngle, joints, joints.size());
 
 	}
 
@@ -492,14 +562,14 @@ MMatrixArray IKChainControl::solve1Bone(const MMatrix& ikGoal, const MVector& up
 /**
 Solves a 1-bone system using aim-vector math.
 All matrices are in the transform space of the previous joint.
-The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
+The solution uses the default forward-x and up-y axixes in world-space!
 
 @param ikGoal: The IK goal in world space.
 @param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
-@param startJoint: The start joint in world space.
-@param endJoint: The end joint in parent space.
-@return: The joint matrices in their respective parent spaces.
+@param startJoint: The start joint specs.
+@param endJoint: The end joint specs.
+@return: The IK solution.
 */
 {
 
@@ -538,20 +608,19 @@ MMatrixArray IKChainControl::solve2Bone(const MMatrix& ikGoal, const MVector& up
 /**
 Solves a 2-bone system using the law of cosines.
 See the following for details: https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html
-All matrices are in the transform space of the previous joint.
-The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
+The solution uses the default forward-x and up-y axixes in world-space!
 
 @param ikGoal: The IK goal in parent space.
 @param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
-@param startJoint: The start joint in world space.
-@param midJoint: The mid joint in parent space.
-@param endJoint: The end joint in parent space.
-@return: The joint matrices in their respective parent spaces.
+@param startJoint: The start joint specs.
+@param midJoint: The mid joint specs.
+@param endJoint: The end joint specs.
+@return: The IK solution.
 */
 {
 
-	// Calculate max limb length
+	// Calculate min/max limb length
 	//
 	double startLength = midJoint.length;
 	double endLength = endJoint.length;
@@ -621,22 +690,309 @@ The solution uses the default forward-x and up-y axixes, be sure to use `Maxform
 };
 
 
-MMatrixArray IKChainControl::solveNBone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints)
+double IKChainControl::lagrange2d(const double x, const MVector& p1, const MVector& p2, const MVector& p3)
 /**
-Solves an n-bone system using a weighted angular redistrution solution.
-All matrices are in the transform space of the previous joint.
-The solution uses the default forward-x and up-y axixes, be sure to use `Maxformations::reorientMatrices` to change this!
+Returns the result of a lagrange2d polynomial that goes through the specified points.
+See the following: https://www.desmos.com/calculator/vx6lr2w13j
+
+@param x: The value to interpolate
+@param p1: The first 2d point.
+@param p2: The second 2d point.
+@param p3: The third 2d point.
+@return: The interpolated value.
+*/
+{
+
+	double a = p3.y / ((p3.x - p1.x) * (p3.x - p2.x));
+	double b = p2.y / ((p2.x - p1.x) * (p2.x - p3.x));
+	double c = p1.y / ((p1.x - p2.x) * (p1.x - p3.x));
+
+	return a * (x - p1.x) * (x - p2.x) + b * (x - p1.x) * (x - p3.x) + c * (x - p2.x) * (x - p3.x);
+
+};
+
+
+MPointArray IKChainControl::compressPoints(const MPointArray& points, const MVector& goal)
+/**
+Compresses the supplied points based on the distance change.
+
+@param points: The points to compress.
+@param effector: The current effector position.
+@return: Compressed points.
+*/
+{
+
+	// Redundancy check
+	//
+	unsigned int pointCount = points.length();
+
+	if (!(pointCount >= 3))
+	{
+
+		return points;  // Minimum of 3 points required!
+
+	}
+
+	// Get bone specs from points
+	//
+	unsigned int boneCount = pointCount - 1;
+	unsigned int angleCount = pointCount - 2;
+
+	MDoubleArray lengths = MDoubleArray(boneCount);
+	MDoubleArray angles = MDoubleArray(angleCount);
+	
+	MVector startVector, endVector, rightVector;
+	double startLength, endLength;
+	double angle = 0.0, angleSum = 0.0;
+	double minDistance = 0.0, maxDistance = 0.0;
+	bool flipped = false, alternates = false;
+
+	for (unsigned int i = 0, j = 1, k = 2; k < pointCount; i++, j++, k++)
+	{
+
+		startVector = (points[i] - points[j]);
+		endVector = (points[k] - points[j]);
+
+		startLength = startVector.length();
+		endLength = endVector.length();
+		lengths[i] = startLength, lengths[j] = endLength;
+		minDistance = (i > 0) ? fabs(endLength - minDistance) : fabs(startLength - endLength);
+		maxDistance += (i > 0) ? endLength : startLength + endLength;
+
+		angle = startVector.angle(endVector);
+		angles[i] = angle;
+		angleSum += angle;
+
+		rightVector = (i == 0) ? (startVector ^ endVector).normal() : rightVector;
+		flipped = (i > 0) ? ((startVector ^ endVector).normal() * rightVector) <= 0.0 : false;
+		alternates = (flipped) ? true : alternates;
+
+	}
+
+	double minAngleSum = alternates ? 0.0 : ((double)boneCount - 2.0) * M_PI;
+	double maxAngleSum = M_PI * (double)angleCount;
+
+	// Compute angle weights
+	//
+	MDoubleArray weights = MDoubleArray(angleCount);
+
+	for (unsigned int i = 0; i < angleCount; i++)
+	{
+
+		weights[i] = angles[i] / angleSum;
+
+	}
+
+	// Compute new weighted angle sum
+	//
+	unsigned int lastIndex = pointCount - 1;
+	MPoint startPoint = points[0];
+	MPoint endPoint = points[lastIndex];
+
+	double distance = startPoint.distanceTo(endPoint);
+	double goalDistance = startPoint.distanceTo(goal);
+
+	double weightedAngleSum = 0.0;
+
+	if (goalDistance <= minDistance)
+	{
+
+		weightedAngleSum = minAngleSum;
+
+	}
+	else if (goalDistance >= maxDistance)
+	{
+
+		weightedAngleSum = maxAngleSum;
+
+	}
+	else
+	{
+
+		weightedAngleSum = IKChainControl::lagrange2d(goalDistance, MVector(minDistance, minAngleSum), MVector(distance, angleSum), MVector(maxDistance, maxAngleSum));  // x = distance; y = angle sum
+	
+	}
+
+	// Adjust points using weighted angles
+	//
+	MPointArray weightedPoints = MPointArray(points);
+	MVector restStartVector, restEndVector, axisVector, rotatedVector;
+	MQuaternion rotation;
+	double weightedAngle;
+
+	for (unsigned int i = 0, j = 1, k = 2; k < pointCount; i++, j++, k++)
+	{
+
+		// Derive rotation axis from vector pairs
+		//
+		restStartVector = (points[i] - points[j]).normal();
+		restEndVector = (points[k] - points[j]).normal();
+
+		axisVector = (restStartVector ^ restEndVector).normal();
+
+		// Check if start vector requires counter rotating
+		//
+		weightedAngle = weightedAngleSum * weights[i];
+		
+		if (i == 0)
+		{
+			
+			startVector = (weightedPoints[j] - weightedPoints[i]).normal();
+			rotation = MQuaternion((weightedAngle - angles[i]), -axisVector);
+			rotatedVector = startVector.rotateBy(rotation);
+
+			weightedPoints[j] = weightedPoints[i] + (rotatedVector * lengths[i]);
+			
+		}
+		
+		// Apply weighted rotation to vector
+		//
+		startVector = (weightedPoints[i] - weightedPoints[j]).normal();
+		rotation = MQuaternion(weightedAngle, axisVector);
+		rotatedVector = startVector.rotateBy(rotation);
+
+		weightedPoints[k] = weightedPoints[j] + (rotatedVector * lengths[j]);
+
+	}
+
+	return weightedPoints;
+
+};
+
+
+MMatrixArray IKChainControl::solveNBone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints, const unsigned int iterations)
+/**
+Solves an n-bone system using a FABRIK solver.
+The solution uses the default forward-x and up-y axixes in world-space!
 
 @param ikGoal: The IK goal in parent space.
 @param upVector: The up vector to orient the joint chain.
 @param swivelAngle: The twist value along the aim vector.
-@param joints: The joints in their respective parent spaces.
-@return: The joint matrices in their respective parent spaces.
+@param joints: The joint specs.
+@return: The IK solution.
 */
 {
 
-	return MMatrixArray(joints.size());
+	// Collect points from joint chain
+	//
+	size_t jointCount = joints.size();
+	size_t lastIndex = jointCount - 1;
 
+	MMatrixArray matrices = MMatrixArray(jointCount);  // This will serve as our fallback!
+	MPointArray points = MPointArray(jointCount);
+	double chainLength = 0.0;
+
+	for (size_t i = 0; i < jointCount; i++)
+	{
+
+		matrices[i] = joints[i].worldMatrix;
+		points[i] = Maxformations::matrixToPosition(matrices[i]);
+
+		chainLength += joints[i].length;
+
+	}
+	
+	MVector origin = points[0];
+	MVector goal = Maxformations::matrixToPosition(ikGoal);
+
+	MPointArray adjustedPoints = IKChainControl::compressPoints(points, goal);  // This will give us a better start pose!
+
+	// Calculate alternate goal relative to start/end
+	//
+	MVector aimVector = goal - origin;
+	MVector normalizedAimVector = aimVector.normal();
+	double aimLength = aimVector.length();
+
+	MVector tip = adjustedPoints[lastIndex];
+	MVector tipVector = (tip - origin).normal();
+
+	MVector altGoal = origin + (tipVector * aimLength);
+
+	// Apply FABRIK to points
+	//
+	MPointArray previousPoints = MPointArray(adjustedPoints);
+	MPointArray nextPoints = MPointArray(adjustedPoints);
+
+	size_t headIndex, tailIndex;
+	MPoint headPoint, tailPoint, effectorPoint;
+	double length;
+	
+	for (unsigned int i = 0; i < iterations; i++)
+	{
+
+		// Backwards solve
+		//
+		for (size_t j = lastIndex; j > 0; j--)
+		{
+
+			headIndex = j;
+			tailIndex = j - 1;
+
+			headPoint = previousPoints[headIndex];
+			tailPoint = previousPoints[tailIndex];
+			effectorPoint = (headIndex == lastIndex) ? altGoal : nextPoints[headIndex];
+
+			length = (headPoint - tailPoint).length();
+			nextPoints[headIndex] = effectorPoint;
+			nextPoints[tailIndex] = effectorPoint + ((tailPoint - effectorPoint).normal() * length);
+
+		}
+
+		previousPoints = MPointArray(nextPoints);
+		
+		// Forwards solve
+		//
+		for (size_t j = 0; j < lastIndex; j++)
+		{
+
+			headIndex = j;
+			tailIndex = j + 1;
+
+			headPoint = previousPoints[headIndex];
+			tailPoint = previousPoints[tailIndex];
+			effectorPoint = (headIndex == 0) ? origin : nextPoints[headIndex];
+
+			length = (headPoint - tailPoint).length();
+			nextPoints[headIndex] = effectorPoint;
+			nextPoints[tailIndex] = effectorPoint + ((tailPoint - effectorPoint).normal() * length);
+
+		}
+
+		previousPoints = MPointArray(nextPoints);
+
+	}
+	
+	// Compose aim matrices from points
+	//
+	MVector restUpVector = IKChainControl::guessUpVector(joints);
+	MVector restRightVector = (normalizedAimVector ^ restUpVector).normal();
+
+	MMatrixArray aimMatrices;
+
+	MStatus status = Maxformations::createAimMatrix(previousPoints, 0, false, restRightVector, 2, false, aimMatrices);
+	CHECK_MSTATUS_AND_RETURN(status, matrices);
+
+	// Reorient aim matrices
+	//
+	MMatrix restMatrix, offsetMatrix;
+
+	status = Maxformations::createAimMatrix(tipVector, 0, restUpVector, 1, origin, restMatrix);
+	CHECK_MSTATUS_AND_RETURN(status, matrices);
+
+	status = Maxformations::createAimMatrix(normalizedAimVector, 0, upVector, 1, origin, offsetMatrix);
+	CHECK_MSTATUS_AND_RETURN(status, matrices);
+
+	MMatrix swivelMatrix = Maxformations::createRotationMatrix(swivelAngle.asRadians(), 0.0, 0.0, Maxformations::AxisOrder::xyz);
+
+	for (size_t i = 0; i < jointCount; i++)
+	{
+
+		matrices[i] = (aimMatrices[i] * restMatrix.inverse()) * (swivelMatrix * offsetMatrix);
+
+	}
+
+	return matrices;
+	
 };
 
 

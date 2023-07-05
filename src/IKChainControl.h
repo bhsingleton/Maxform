@@ -53,11 +53,15 @@ public:
 	static	std::vector<IKControlSpec>	getJoints(MDataBlock& data, MStatus* status);
 	static	MVector			getUpVector(const MMatrix& startJoint, const MMatrix& vhTarget);
 	static	MVector			guessUpVector(const std::vector<IKControlSpec>& joints, const int upAxis, const bool upAxisFlip);
+	static	MVector			guessUpVector(const std::vector<IKControlSpec>& joints);
+
+	static	double			lagrange2d(const double x, const MVector& p1, const MVector& p2, const MVector& p3);
+	static	MPointArray		compressPoints(const MPointArray& points, const MVector& effector);
 
 	static	MMatrixArray	solve(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints);
 	static	MMatrixArray	solve1Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const IKControlSpec& endJoint);
 	static	MMatrixArray	solve2Bone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const IKControlSpec& startJoint, const IKControlSpec& midJoint, const IKControlSpec& endJoint);
-	static	MMatrixArray	solveNBone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints);
+	static	MMatrixArray	solveNBone(const MMatrix& ikGoal, const MVector& upVector, const MAngle& swivelAngle, const std::vector<IKControlSpec>& joints, const unsigned int iterations);
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
 
