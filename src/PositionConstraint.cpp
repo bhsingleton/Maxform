@@ -148,7 +148,7 @@ Only these values should be used when performing computations!
 
 			// Get target weight
 			//
-			targetWeights[i] = Maxformations::clamp(targetWeightHandle.asFloat(), 0.0f, 100.0f) / 100.0;
+			targetWeights[i] = Maxformations::clamp(targetWeightHandle.asFloat(), 0.0f, 100.0f) / 100.0f;
 
 			// Get target matrices
 			//
@@ -157,8 +157,8 @@ Only these values should be used when performing computations!
 			targetOffsetTranslate = targetOffsetTranslateHandle.asVector();
 			targetOffsetMatrix = relative ? Maxformations::createPositionMatrix(targetOffsetTranslate) : MMatrix::identity;
 
-			targetMatrices[i] = targetOffsetMatrix * targetMatrix;
-			targetWorldMatrices[i] = targetMatrices[i] * targetParentMatrix;
+			targetMatrices[i] = Maxformations::createPositionMatrix(targetOffsetMatrix * targetMatrix);
+			targetWorldMatrices[i] = Maxformations::createPositionMatrix(targetMatrices[i] * targetParentMatrix);
 
 		}
 
