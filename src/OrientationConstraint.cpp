@@ -161,8 +161,8 @@ Only these values should be used when performing computations!
 			targetParentMatrix = targetParentMatrixHandle.asMatrix();
 			targetOffsetMatrix = relative ? Maxformations::createRotationMatrix(targetOffsetRotateHandle.asVector()) : MMatrix::identity;
 
-			targetMatrices[i] = Maxformations::createRotationMatrix(targetOffsetMatrix * targetMatrix);
-			targetWorldMatrices[i] = Maxformations::createRotationMatrix(targetMatrices[i] * targetParentMatrix);
+			targetMatrices[i] = Maxformations::createRotationMatrix(targetOffsetMatrix * Maxformations::normalizeMatrix(targetMatrix));
+			targetWorldMatrices[i] = Maxformations::createRotationMatrix(targetOffsetMatrix * Maxformations::normalizeMatrix(targetMatrix * targetParentMatrix));
 
 		}
 

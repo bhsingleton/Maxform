@@ -157,8 +157,8 @@ Only these values should be used when performing computations!
 			targetOffsetTranslate = targetOffsetTranslateHandle.asVector();
 			targetOffsetMatrix = relative ? Maxformations::createPositionMatrix(targetOffsetTranslate) : MMatrix::identity;
 
-			targetMatrices[i] = Maxformations::createPositionMatrix(targetOffsetMatrix * targetMatrix);
-			targetWorldMatrices[i] = Maxformations::createPositionMatrix(targetMatrices[i] * targetParentMatrix);
+			targetMatrices[i] = Maxformations::createPositionMatrix(targetOffsetMatrix * Maxformations::normalizeMatrix(targetMatrix));
+			targetWorldMatrices[i] = Maxformations::createPositionMatrix(targetOffsetMatrix * Maxformations::normalizeMatrix(targetMatrix * targetParentMatrix));
 
 		}
 
