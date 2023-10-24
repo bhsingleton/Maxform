@@ -439,10 +439,36 @@ Returns the forward vector at the specified parameter.
 	//
 	MFnNurbsCurve fnCurve(curve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
+	// Check if parameter is in range
+	//
+	double startParameter, endParameter, clampedParameter;
+
+	status = fnCurve.getKnotDomain(startParameter, endParameter);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	if (parameter < startParameter)
+	{
+
+		clampedParameter = startParameter;
+
+	}
+	else if (parameter >= endParameter)
+	{
+
+		clampedParameter = endParameter - 1e-3;
+
+	}
+	else
+	{
+
+		clampedParameter = parameter;
+
+	}
 
 	// Return tagent vector at parameter
 	//
-	forwardVector = fnCurve.tangent(parameter, MSpace::kWorld, &status);
+	forwardVector = fnCurve.tangent(clampedParameter, MSpace::kWorld, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = forwardVector.normalize();
@@ -597,9 +623,35 @@ Returns the tangent normal at the given percentile.
 	MFnNurbsCurve fnCurve(curve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	// Check if parameter is in range
+	//
+	double startParameter, endParameter, clampedParameter;
+
+	status = fnCurve.getKnotDomain(startParameter, endParameter);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	if (parameter < startParameter)
+	{
+
+		clampedParameter = startParameter;
+
+	}
+	else if (parameter >= endParameter)
+	{
+
+		clampedParameter = endParameter - 1e-3;
+
+	}
+	else
+	{
+
+		clampedParameter = parameter;
+
+	}
+
 	// Return normal at parameter
 	//
-	upVector = fnCurve.normal(parameter, MSpace::kWorld, &status);
+	upVector = fnCurve.normal(clampedParameter, MSpace::kWorld, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
