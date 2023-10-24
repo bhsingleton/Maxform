@@ -354,7 +354,9 @@ Returns the expose and local reference matrix, at the specified time, from the i
 	// Check if time exists inside cache
 	//
 	unsigned int frame = std::round(time.value());
+	
 	bool hasMatrix = this->exposeMatrices.find(frame) != this->exposeMatrices.end();
+	bool hasMatrices = this->exposeMatrices.size() > 0 && this->localReferenceMatrices.size() > 0;
 
 	if (hasMatrix)
 	{
@@ -363,6 +365,14 @@ Returns the expose and local reference matrix, at the specified time, from the i
 		localReferenceMatrix = this->localReferenceMatrices[frame];
 
 	}
+	else if (hasMatrices)
+	{
+
+		exposeMatrix = this->exposeMatrices.begin()->second;
+		localReferenceMatrix = this->localReferenceMatrices.begin()->second;
+
+	}
+	else;
 
 	return status;
 
