@@ -35,6 +35,7 @@
 #include <maya/MDGContext.h>
 #include <maya/MDGContextGuard.h>
 #include <maya/MAnimControl.h>
+#include <maya/MConditionMessage.h>
 #include <maya/MFileIO.h>
 #include <maya/MTypeId.h> 
 #include <maya/MGlobal.h>
@@ -55,6 +56,7 @@ public:
 
 	virtual	bool			setInternalValue(const MPlug& plug, const MDataHandle& dataHandle);
 	virtual	MStatus			getCachedMatrices(const MTime& time, MMatrix& exposeMatrix, MMatrix& localReferenceMatrix);
+	virtual void			clearOutOfRangeMatrices();
 
 	virtual	MStatus			legalConnection(const MPlug& plug, const MPlug& otherPlug, bool asSrc, bool& isLegal);
 	virtual	MStatus			connectionMade(const MPlug& plug, const MPlug& otherPlug, bool asSrc);
@@ -109,6 +111,7 @@ private:
 			MObjectHandle	localReferenceHandle;
 			bool			parentEnabled;
 
+			MCallbackId						callbackId;
 			std::map<unsigned int, MMatrix>	exposeMatrices;
 			std::map<unsigned int, MMatrix>	localReferenceMatrices;
 

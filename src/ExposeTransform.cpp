@@ -44,6 +44,32 @@ MString		ExposeTransform::exposeCategory("Expose");
 MTypeId		ExposeTransform::id(0x0013b1c8);
 
 
+void onPlayingBack(bool state, void* clientData)
+{
+
+	// Check if pointer is valid
+	//
+	ExposeTransform* node = static_cast<ExposeTransform*>(clientData);
+
+	if (node == nullptr)
+	{
+
+		return;
+
+	}
+
+	// Check if internal cache requires clearing
+	//
+	if (!state)
+	{
+
+		node->clearOutOfRangeMatrices();
+
+	}
+
+};
+
+
 ExposeTransform::ExposeTransform()
 /**
 Constructor.
@@ -53,11 +79,19 @@ Constructor.
 	this->exposeHandle = MObjectHandle();
 	this->localReferenceHandle = MObjectHandle();
 	this->parentEnabled = false;
-
+	this->callbackId = MConditionMessage::addConditionCallback("playingBack", onPlayingBack, this);
 };
 
 
-ExposeTransform::~ExposeTransform() {};
+ExposeTransform::~ExposeTransform() 
+/**
+Destructor.
+*/
+{
+
+	MConditionMessage::removeCallback(this->callbackId);
+
+};
 
 
 MStatus ExposeTransform::compute(const MPlug& plug, MDataBlock& data) 
@@ -352,6 +386,7 @@ Returns the expose and local reference matrix, at the specified time, from the i
 	MStatus status;
 
 	// Check if time exists inside cache
+	// If not, then evaluate matrices at different context
 	//
 	unsigned int frame = std::round(time.value());
 	
@@ -365,16 +400,58 @@ Returns the expose and local reference matrix, at the specified time, from the i
 		localReferenceMatrix = this->localReferenceMatrices[frame];
 
 	}
-	else if (hasMatrices)
+	else
 	{
 
-		exposeMatrix = this->exposeMatrices.begin()->second;
-		localReferenceMatrix = this->localReferenceMatrices.begin()->second;
+		MDGContext context = MDGContext(time);
+		MDGContextGuard guard(context);
+
+		MPlug exposeMatrixPlug = MPlug(this->thisMObject(), ExposeTransform::exposeMatrix);
+		MPlug localReferenceMatrixPlug = MPlug(this->thisMObject(), ExposeTransform::localReferenceMatrix);
+
+		exposeMatrix = Maxformations::getMatrixData(exposeMatrixPlug.asMObject());
+		localReferenceMatrix = Maxformations::getMatrixData(localReferenceMatrixPlug.asMObject());
+
+		exposeMatrices[frame] = exposeMatrix;
+		localReferenceMatrices[frame] = localReferenceMatrix;
 
 	}
-	else;
 
 	return status;
+
+};
+
+
+void ExposeTransform::clearOutOfRangeMatrices()
+/**
+Removes any cached matrices that are out-of-range.
+
+@return: Void.
+*/
+{
+
+	unsigned int startFrame = round(MAnimControl::animationStartTime().value());
+	unsigned int endFrame = round(MAnimControl::animationEndTime().value());
+
+	std::map<unsigned int, MMatrix>::iterator iter;
+	std::map<unsigned int, MMatrix> exposeMatrices;
+	std::map<unsigned int, MMatrix> localReferenceMatrices;
+
+	for (iter = this->exposeMatrices.begin(); iter != this->exposeMatrices.end(); iter++)
+	{
+		
+		if ((startFrame <= iter->first) && (iter->first <= endFrame))
+		{
+
+			exposeMatrices[iter->first] = this->exposeMatrices[iter->first];
+			localReferenceMatrices[iter->first] = this->localReferenceMatrices[iter->first];
+
+		}
+
+	}
+
+	this->exposeMatrices = exposeMatrices;
+	this->localReferenceMatrices = localReferenceMatrices;
 
 };
 
