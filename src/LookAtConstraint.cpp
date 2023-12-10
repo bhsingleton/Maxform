@@ -188,13 +188,11 @@ Only these values should be used when performing computations!
 		// Collect target matrices
 		//
 		unsigned int targetCount = targetArrayHandle.elementCount();
-
 		MFloatArray targetWeights = MFloatArray(targetCount);
 		MMatrixArray targetMatrices = MMatrixArray(targetCount);
 
 		MDataHandle targetHandle, targetWeightHandle, targetMatrixHandle, targetParentMatrixHandle;
-		MMatrix targetMatrix, targetParentMatrix, targetWorldMatrix, targetAimMatrix;
-		MVector targetPoint, forwardVector;
+		MMatrix targetMatrix, targetParentMatrix, targetWorldMatrix;
 
 		for (unsigned int i = 0; i < targetCount; i++)
 		{
@@ -215,7 +213,7 @@ Only these values should be used when performing computations!
 
 			// Get target weight
 			//
-			targetWeights[i] = targetWeightHandle.asFloat() / 100.0;
+			targetWeights[i] = Maxformations::clamp(targetWeightHandle.asFloat(), 0.0f, 100.0f) / 100.0f;
 
 			// Get target matrices
 			//
@@ -223,22 +221,39 @@ Only these values should be used when performing computations!
 			targetParentMatrix = targetParentMatrixHandle.asMatrix();
 			targetWorldMatrix = targetMatrix * targetParentMatrix;
 
-			targetPoint = Maxformations::matrixToPosition(targetWorldMatrix);
-			forwardVector = (targetPoint - constraintOrigin).normal();
-
-			status = Maxformations::createAimMatrix(forwardVector, targetAxis, targetAxisFlip, upVector, sourceUpAxis, sourceUpAxisFlip, constraintOrigin, targetAimMatrix);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			targetMatrices[i] = rollMatrix * targetAimMatrix;
+			targetMatrices[i] = targetWorldMatrix;
 
 		}
 
-		// Calculate weighted constraint matrix
+		// Calculate aim matrix
+		// If there are no weights then default back to rest matrix!
 		//
-		MMatrix aimMatrix = Maxformations::blendMatrices(restWorldMatrix, targetMatrices, targetWeights);
+		float weightSum = Maxformations::sum(targetWeights);
+		MMatrix constraintWorldMatrix, constraintMatrix;
 
-		MMatrix constraintWorldMatrix = offsetMatrix * aimMatrix;
-		MMatrix constraintMatrix = constraintWorldMatrix * constraintParentInverseMatrix;
+		if (weightSum > 0.0)
+		{
+
+			MMatrix blendMatrix = Maxformations::blendMatrices(restWorldMatrix, targetMatrices, targetWeights);
+			MVector targetPoint = Maxformations::matrixToPosition(blendMatrix);
+			MVector forwardVector = (targetPoint - constraintOrigin).normal();
+
+			MMatrix aimMatrix;
+
+			status = Maxformations::createAimMatrix(forwardVector, targetAxis, targetAxisFlip, upVector, sourceUpAxis, sourceUpAxisFlip, constraintOrigin, aimMatrix);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			constraintWorldMatrix = offsetMatrix * (rollMatrix * aimMatrix);
+			constraintMatrix = constraintWorldMatrix * constraintParentInverseMatrix;
+
+		}
+		else
+		{
+
+			constraintWorldMatrix = restWorldMatrix;
+			constraintMatrix = constraintWorldMatrix * constraintParentInverseMatrix;
+
+		}
 
 		// Get output data handles
 		//
