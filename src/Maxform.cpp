@@ -234,9 +234,20 @@ If you have specialty code that calls this method directly you'll have to ensure
 	if (plug == Maxform::transform)
 	{
 		
+		// Get data block from handle
+		// If this fails then get the data block from the current context
+		// 
+		MDataBlock data = handle.datablock(&status);
+
+		if (!status) 
+		{
+
+			data = this->forceCache();
+
+		}
+
 		// Recompute local transformation matrix
 		//
-		MDataBlock data = this->forceCache();
 		MPxTransformationMatrix* xform = this->transformationMatrixPtr();
 
 		status = this->computeLocalTransformation(xform, data);
@@ -244,7 +255,6 @@ If you have specialty code that calls this method directly you'll have to ensure
 
 		// Copy transform data to output handle
 		//
-		
 		MDataHandle outputHandle = data.outputValue(plug, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		
@@ -252,6 +262,7 @@ If you have specialty code that calls this method directly you'll have to ensure
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		outputHandle.setClean();
+		data.setClean(plug);
 
 		// Mark matrix as dirty to force DAG update
 		//
