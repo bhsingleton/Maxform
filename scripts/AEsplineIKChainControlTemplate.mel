@@ -1,0 +1,44 @@
+global proc AEsplineIKChainControlTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        editorTemplate -beginLayout "Spline IK-Chain Control Attributes" -collapse false;
+			
+			editorTemplate -addControl "enabled";
+            editorTemplate -addControl "forwardAxis";
+			editorTemplate -addControl "forwardAxisFlip";
+			editorTemplate -addControl "upAxis";
+			editorTemplate -addControl "upAxisFlip";
+			editorTemplate -addControl "startTwistAngle";
+			editorTemplate -addControl "endTwistAngle";
+			editorTemplate -addControl "iterations";
+			editorTemplate -addControl "tolerance";
+			
+        editorTemplate -endLayout;
+        
+		editorTemplate -beginLayout "IK Goal" -collapse true;
+			
+			editorTemplate -addControl "ikGoal";
+			
+        editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Up-Node" -collapse true;
+			
+			editorTemplate -addControl "useUpNode";
+			editorTemplate -addControl "upNode";
+			
+        editorTemplate -endLayout;
+		
+		editorTemplate -addControl "joint";
+		
+		editorTemplate -suppress "splineShape";
+		editorTemplate -suppress "ikParentMatrix";
+		editorTemplate -suppress "jointParentMatrix";
+		
+        AEdependNodeTemplate $nodeName;
+        editorTemplate -addExtraControls;
+        
+    editorTemplate -endScrollLayout;
+    
+}

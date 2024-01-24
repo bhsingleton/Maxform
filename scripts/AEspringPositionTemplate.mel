@@ -1,0 +1,28 @@
+global proc AEspringPositionTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        editorTemplate -beginLayout "Spring Position Attributes" -collapse false;
+			
+			editorTemplate -addControl "absolute";
+			editorTemplate -addControl "mass";
+            editorTemplate -addControl "drag";
+			editorTemplate -addControl "tension";
+			editorTemplate -addControl "dampening";
+			editorTemplate -addControl "position";
+			editorTemplate -addControl "startTime";
+			editorTemplate -addControl "steps";
+			editorTemplate -addControl "effect";
+			
+        editorTemplate -endLayout;
+        
+        AEdependNodeTemplate $nodeName;
+        editorTemplate -addExtraControls;
+        
+		editorTemplate -suppress "time";
+		editorTemplate -suppress "parentInverseMatrix";
+		
+    editorTemplate -endScrollLayout;
+    
+}

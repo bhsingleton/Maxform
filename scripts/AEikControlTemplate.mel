@@ -1,0 +1,35 @@
+global proc AEikControlTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        editorTemplate -beginLayout "IK-Control Attributes" -collapse false;
+			
+			editorTemplate -label "Rotation X Active" -addControl "rotationXActive";
+			editorTemplate -label "Rotation X Limited" -addControl "rotationXLimited";
+			editorTemplate -label "Rotation X Lower Limit" -addControl "rotationXLowerLimit";
+			editorTemplate -label "Rotation X Upper Limit" -addControl "rotationXUpperLimit";
+			
+			editorTemplate -label "Rotation Y Active" -addControl "rotationYActive";
+			editorTemplate -label "Rotation Y Limited" -addControl "rotationYLimited";
+			editorTemplate -label "Rotation Y Lower Limit" -addControl "rotationYLowerLimit";
+			editorTemplate -label "Rotation Y Upper Limit" -addControl "rotationYUpperLimit";
+			
+			editorTemplate -label "Rotation Z Active" -addControl "rotationZActive";
+			editorTemplate -label "Rotation Z Limited" -addControl "rotationZLimited";
+			editorTemplate -label "Rotation Z Lower Limit" -addControl "rotationZLowerLimit";
+			editorTemplate -label "Rotation Z Upper Limit" -addControl "rotationZUpperLimit";
+			
+			editorTemplate -addControl "preferredRotation";
+        
+        editorTemplate -endLayout;
+		
+		editorTemplate -suppress "ikSubControl";
+		editorTemplate -suppress "fkSubControl";
+		
+        AEdependNodeTemplate $nodeName;
+        editorTemplate -addExtraControls;
+        
+    editorTemplate -endScrollLayout;
+    
+}

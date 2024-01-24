@@ -1,0 +1,40 @@
+global proc AEpositionConstraintTemplate(string $nodeName)
+{
+    
+    editorTemplate -beginScrollLayout;
+        
+        AEtransformMain($nodeName);
+        AEtransformNoScroll($nodeName);
+        
+        editorTemplate -beginLayout "Constraint Attributes" -collapse false;
+			
+			editorTemplate -addControl "localOrWorld";
+			
+			editorTemplate -addControl "constraintTranslate";
+			
+		editorTemplate -endLayout;
+		
+		editorTemplate -beginLayout "Offset Attributes" -collapse true;
+		
+			editorTemplate -addControl "relative";
+			editorTemplate -addControl "offsetTranslate";
+			
+		editorTemplate -endLayout;
+
+		editorTemplate -beginLayout "Rest Attributes" -collapse true;
+		
+			editorTemplate -addControl "enableRestPosition";
+			editorTemplate -addControl "restTranslate";
+			
+		editorTemplate -endLayout;
+		
+		editorTemplate -addControl "target";
+		
+        editorTemplate -addExtraControls;
+		
+		editorTemplate -suppress "lockOutput";
+		editorTemplate -suppress "constraintParentInverseMatrix";
+        
+    editorTemplate -endScrollLayout;
+    
+}
