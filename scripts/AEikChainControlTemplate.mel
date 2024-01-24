@@ -14,14 +14,13 @@ global proc AEikChainControlTemplate(string $nodeName)
 			
         editorTemplate -endLayout;
         
-		editorTemplate -beginLayout "IK Goal" -collapse false;
+		editorTemplate -beginLayout "IK Goal" -collapse true;
 			
 			editorTemplate -addControl "ikGoal";
-			editorTemplate -suppress "ikParentMatrix";
 			
         editorTemplate -endLayout;
 		
-		editorTemplate -beginLayout "Vector-Handle Target" -collapse false;
+		editorTemplate -beginLayout "Vector-Handle Target" -collapse true;
 			
 			editorTemplate -addControl "useVHTarget";
 			editorTemplate -addControl "vhTarget";
@@ -29,6 +28,9 @@ global proc AEikChainControlTemplate(string $nodeName)
         editorTemplate -endLayout;
 		
 		editorTemplate -addControl "joint";
+		
+		editorTemplate -suppress "ikParentMatrix";
+		editorTemplate -suppress "jointParentMatrix";
 		
         AEdependNodeTemplate $nodeName;
         editorTemplate -addExtraControls;
