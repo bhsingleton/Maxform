@@ -7,14 +7,16 @@ global proc AErotationListTemplate(string $nodeName)
 			
 			editorTemplate -addControl "rotateOrder";
 			editorTemplate -addControl "active";
-            editorTemplate -addControl "normalizeWeights";
+            editorTemplate -addControl "average";
         
         editorTemplate -endLayout;
         
 		editorTemplate -addControl "list";
 		
-		editorTemplate -suppress "matrix";
 		editorTemplate -suppress "value";
+		editorTemplate -suppress "preValue";
+		editorTemplate -suppress "matrix";
+		editorTemplate -suppress "inverseMatrix";
 		
         AEdependNodeTemplate $nodeName;
         editorTemplate -addExtraControls;
