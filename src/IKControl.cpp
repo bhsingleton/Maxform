@@ -10,6 +10,18 @@
 
 MObject	IKControl::ikSubControl;
 MObject	IKControl::fkSubControl;
+MObject	IKControl::rotationXActive;
+MObject	IKControl::rotationXLimited;
+MObject	IKControl::rotationXLowerLimit;
+MObject	IKControl::rotationXUpperLimit;
+MObject	IKControl::rotationYActive;
+MObject	IKControl::rotationYLimited;
+MObject	IKControl::rotationYLowerLimit;
+MObject	IKControl::rotationYUpperLimit;
+MObject	IKControl::rotationZActive;
+MObject	IKControl::rotationZLimited;
+MObject	IKControl::rotationZLowerLimit;
+MObject	IKControl::rotationZUpperLimit;
 MObject	IKControl::preferredRotation;
 MObject	IKControl::preferredRotationX;
 MObject	IKControl::preferredRotationY;
@@ -52,31 +64,229 @@ Only these values should be used when performing computations!
 	if (isValue)
 	{
 
-		// Check if ik is enabled
+		// Check if IK is enabled
+		// If not, then copy the FK sub-controller data handle
 		// 
-		MDataHandle subControlHandle;
-
-		if (this->ikEnabled)
+		if (!this->ikEnabled)
 		{
 
-			subControlHandle = data.inputValue(IKControl::ikSubControl, &status);
+			// Copy data handle
+			//
+			MDataHandle fkSubControlHandle = data.inputValue(IKControl::fkSubControl, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
+			MDataHandle valueHandle = data.outputValue(IKControl::value, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			status = valueHandle.copy(fkSubControlHandle);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			// Mark plug as clean
+			//
+			status = data.setClean(plug);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			return MS::kSuccess;
+
 		}
-		else
+
+		// Evaluate limits and activations
+		//
+		MDataHandle rotationXActiveHandle = data.inputValue(IKControl::rotationXActive, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle rotationYActiveHandle = data.inputValue(IKControl::rotationYActive, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle rotationZActiveHandle = data.inputValue(IKControl::rotationZActive, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		bool rotationXActive = rotationXActiveHandle.asBool();
+		bool rotationYActive = rotationYActiveHandle.asBool();
+		bool rotationZActive = rotationZActiveHandle.asBool();
+		bool rotationActive = rotationXActive && rotationYActive && rotationZActive;
+
+		MDataHandle rotationXLimitedHandle = data.inputValue(IKControl::rotationXLimited, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle rotationYLimitedHandle = data.inputValue(IKControl::rotationYLimited, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle rotationZLimitedHandle = data.inputValue(IKControl::rotationZLimited, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		bool rotationXLimited = rotationXLimitedHandle.asBool();
+		bool rotationYLimited = rotationYLimitedHandle.asBool();
+		bool rotationZLimited = rotationZLimitedHandle.asBool();
+		bool rotationLimited = rotationXLimited || rotationYLimited || rotationZLimited;
+
+		if (rotationActive && !rotationLimited)
 		{
 
-			subControlHandle = data.inputValue(IKControl::fkSubControl, &status);
+			// Copy data handle
+			//
+			MDataHandle ikSubControlHandle = data.inputValue(IKControl::ikSubControl, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			MDataHandle valueHandle = data.outputValue(IKControl::value, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			status = valueHandle.copy(ikSubControlHandle);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			// Mark plug as clean
+			//
+			status = data.setClean(plug);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			return MS::kSuccess;
 
 		}
 
-		// Copy value to output data handle
+		// Get transformation matrices
+		//
+		MDataHandle ikSubControlHandle = data.inputValue(IKControl::ikSubControl, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MDataHandle fkSubControlHandle = data.inputValue(IKControl::fkSubControl, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MTransformationMatrix fkMatrix = Maxformations::getTransformData(fkSubControlHandle.data());
+		MTransformationMatrix ikMatrix = Maxformations::getTransformData(ikSubControlHandle.data());
+
+		MEulerRotation fkRotation = fkMatrix.eulerRotation();
+		MEulerRotation ikRotation = ikMatrix.eulerRotation();
+
+		// Apply x-rotation limit
+		//
+		if (!rotationXActive)
+		{
+
+			ikRotation.x = fkRotation.x;
+
+		}
+		else if (rotationXLimited)
+		{
+
+			MDataHandle rotationXLowerLimitHandle = data.inputValue(IKControl::rotationXLowerLimit, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			double rotationXLowerLimit = rotationXLowerLimitHandle.asAngle().asRadians();
+
+			if (ikRotation.x < rotationXLowerLimit)
+			{
+
+				ikRotation.x = rotationXLowerLimit;
+
+			}
+
+			MDataHandle rotationXUpperLimitHandle = data.inputValue(IKControl::rotationXUpperLimit, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			double rotationXUpperLimit = rotationXUpperLimitHandle.asAngle().asRadians();
+
+			if (ikRotation.x > rotationXUpperLimit)
+			{
+
+				ikRotation.x = rotationXUpperLimit;
+
+			}
+
+		}
+		else;
+
+		// Apply y-rotation limit
+		//
+		if (!rotationYActive)
+		{
+
+			ikRotation.y = fkRotation.y;
+
+		}
+		else if (rotationYLimited)
+		{
+
+			MDataHandle rotationYLowerLimitHandle = data.inputValue(IKControl::rotationYLowerLimit, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			double rotationYLowerLimit = rotationYLowerLimitHandle.asAngle().asRadians();
+
+			if (ikRotation.y < rotationYLowerLimit)
+			{
+
+				ikRotation.y = rotationYLowerLimit;
+
+			}
+
+			MDataHandle rotationYUpperLimitHandle = data.inputValue(IKControl::rotationYUpperLimit, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			double rotationYUpperLimit = rotationYUpperLimitHandle.asAngle().asRadians();
+
+			if (ikRotation.y > rotationYUpperLimit)
+			{
+
+				ikRotation.y = rotationYUpperLimit;
+
+			}
+
+		}
+		else;
+
+		// Apply z-rotation limit
+		//
+		if (!rotationZActive)
+		{
+
+			ikRotation.z = fkRotation.z;
+
+		}
+		else if (rotationZLimited)
+		{
+
+			MDataHandle rotationZLowerLimitHandle = data.inputValue(IKControl::rotationZLowerLimit, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			double rotationZLowerLimit = rotationZLowerLimitHandle.asAngle().asRadians();
+
+			if (ikRotation.z < rotationZLowerLimit)
+			{
+
+				ikRotation.z = rotationZLowerLimit;
+
+			}
+
+			MDataHandle rotationZUpperLimitHandle = data.inputValue(IKControl::rotationZUpperLimit, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			double rotationZUpperLimit = rotationZUpperLimitHandle.asAngle().asRadians();
+
+			if (ikRotation.z > rotationZUpperLimit)
+			{
+
+				ikRotation.z = rotationZUpperLimit;
+
+			}
+
+		}
+		else;
+
+		// Update transformation matrix
+		//
+		double3 eulerRotation = { ikRotation.x, ikRotation.y, ikRotation.z };
+		MTransformationMatrix::RotationOrder rotationOrder = MTransformationMatrix::RotationOrder(fkRotation.order + 1);
+
+		status = ikMatrix.setRotation(eulerRotation, rotationOrder);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MObject transformData = Maxformations::createMatrixData(ikMatrix);
+
+		// Update data handle
 		//
 		MDataHandle valueHandle = data.outputValue(IKControl::value, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		status = valueHandle.copy(subControlHandle);
+		status = valueHandle.setMObject(transformData);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Mark plug as clean
@@ -312,6 +522,102 @@ Use this function to define any static attributes.
 	IKControl::fkSubControl = fnTypedAttr.create("fkSubControl", "fksc", MFnData::kMatrix, Matrix3Controller::IDENTITY_MATRIX_DATA, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
+	// ".rotationXActive" attribute
+	//
+	IKControl::rotationXActive = fnNumericAttr.create("rotationXActive", "rxa", MFnNumericData::kBoolean, true, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationXLimited" attribute
+	//
+	IKControl::rotationXLimited = fnNumericAttr.create("rotationXLimited", "rxl", MFnNumericData::kBoolean, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationXLowerLimit" attribute
+	//
+	IKControl::rotationXLowerLimit = fnUnitAttr.create("rotationXLowerLimit", "rxll", MFnUnitAttribute::kAngle, -M_PI, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationXUpperLimit" attribute
+	//
+	IKControl::rotationXUpperLimit = fnUnitAttr.create("rotationXUpperLimit", "rxul", MFnUnitAttribute::kAngle, M_PI, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationYActive" attribute
+	//
+	IKControl::rotationYActive = fnNumericAttr.create("rotationYActive", "rya", MFnNumericData::kBoolean, true, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationYLimited" attribute
+	//
+	IKControl::rotationYLimited = fnNumericAttr.create("rotationYLimited", "ryl", MFnNumericData::kBoolean, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationYLowerLimit" attribute
+	//
+	IKControl::rotationYLowerLimit = fnUnitAttr.create("rotationYLowerLimit", "ryll", MFnUnitAttribute::kAngle, -M_PI, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationYUpperLimit" attribute
+	//
+	IKControl::rotationYUpperLimit = fnUnitAttr.create("rotationYUpperLimit", "ryul", MFnUnitAttribute::kAngle, M_PI, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationZActive" attribute
+	//
+	IKControl::rotationZActive = fnNumericAttr.create("rotationZActive", "rza", MFnNumericData::kBoolean, true, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationZLimited" attribute
+	//
+	IKControl::rotationZLimited = fnNumericAttr.create("rotationZLimited", "rzl", MFnNumericData::kBoolean, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnNumericAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnNumericAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationZLowerLimit" attribute
+	//
+	IKControl::rotationZLowerLimit = fnUnitAttr.create("rotationZLowerLimit", "rzll", MFnUnitAttribute::kAngle, -M_PI, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+
+	// ".rotationZUpperLimit" attribute
+	//
+	IKControl::rotationZUpperLimit = fnUnitAttr.create("rotationZUpperLimit", "rzul", MFnUnitAttribute::kAngle, M_PI, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	CHECK_MSTATUS(fnUnitAttr.setChannelBox(true));
+	CHECK_MSTATUS(fnUnitAttr.addToCategory(PRS::inputCategory));
+
 	// ".preferredRotationX" attribute
 	//
 	IKControl::preferredRotationX = fnUnitAttr.create("preferredRotationX", "prx", MFnUnitAttribute::kAngle, 0.0, &status);
@@ -352,12 +658,36 @@ Use this function to define any static attributes.
 	//
 	CHECK_MSTATUS(IKControl::addAttribute(IKControl::ikSubControl));
 	CHECK_MSTATUS(IKControl::addAttribute(IKControl::fkSubControl));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationXActive));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationXLimited));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationXLowerLimit));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationXUpperLimit));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationYActive));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationYLimited));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationYLowerLimit));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationYUpperLimit));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationZActive));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationZLimited));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationZLowerLimit));
+	CHECK_MSTATUS(IKControl::addAttribute(IKControl::rotationZUpperLimit));
 	CHECK_MSTATUS(IKControl::addAttribute(IKControl::preferredRotation));
 
 	// Define attribute relationships
 	//
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::ikSubControl, IKControl::value));
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::fkSubControl, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationXActive, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationXLimited, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationXLowerLimit, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationXUpperLimit, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationYActive, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationYLimited, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationYLowerLimit, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationYUpperLimit, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationZActive, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationZLimited, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationZLowerLimit, IKControl::value));
+	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::rotationZUpperLimit, IKControl::value));
 	CHECK_MSTATUS(IKControl::attributeAffects(IKControl::preferredRotation, IKControl::value));
 
 	return status;

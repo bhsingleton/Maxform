@@ -74,6 +74,18 @@ public:
 	
 	static	MObject		ikSubControl;
 	static	MObject		fkSubControl;
+	static	MObject		rotationXActive;
+	static	MObject		rotationXLimited;
+	static	MObject		rotationXLowerLimit;
+	static	MObject		rotationXUpperLimit;
+	static	MObject		rotationYActive;
+	static	MObject		rotationYLimited;
+	static	MObject		rotationYLowerLimit;
+	static	MObject		rotationYUpperLimit;
+	static	MObject		rotationZActive;
+	static	MObject		rotationZLimited;
+	static	MObject		rotationZLowerLimit;
+	static	MObject		rotationZUpperLimit;
 	static	MObject		preferredRotation;
 	static	MObject		preferredRotationX;
 	static	MObject		preferredRotationY;
