@@ -8,23 +8,15 @@ global proc AEprsTemplate(string $nodeName)
 			editorTemplate -addControl "position";
 			editorTemplate -addControl "rotation";
             editorTemplate -addControl "scale";
-        
-        editorTemplate -endLayout;
-        
-		editorTemplate -beginLayout "Transform" -collapse false;
-			
-			editorTemplate -addControl "matrix";
-			editorTemplate -addControl "translationPart";
-            editorTemplate -addControl "rotationPart";
-			editorTemplate -addControl "scalePart";
+			editorTemplate -addControl "axisOrder";
 			
         editorTemplate -endLayout;
-		
-		editorTemplate -suppress "inverseMatrix";
-		
+        
         AEdependNodeTemplate $nodeName;
+		
         editorTemplate -addExtraControls;
-        
+		editorTemplate -suppress "orientation";
+		
     editorTemplate -endScrollLayout;
     
 }

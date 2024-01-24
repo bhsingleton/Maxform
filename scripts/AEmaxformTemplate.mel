@@ -15,9 +15,6 @@ global proc AEmaxformTemplate(string $nodeName)
 		editorTemplate -endLayout;
 		
 		editorTemplate -addExtraControls;
-		editorTemplate -suppress "preTranslate";
-		editorTemplate -suppress "preRotate";
-		editorTemplate -suppress "preScale";
 		editorTemplate -suppress "transform";
         
     editorTemplate -endScrollLayout;
