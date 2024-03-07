@@ -462,7 +462,7 @@ Returns the weighted average from the supplied array data handle.
 
 		// Jump to array element
 		//
-		*status = handle.jumpToElement(i);
+		*status = handle.jumpToArrayElement(i);
 		CHECK_MSTATUS_AND_RETURN(*status, MVector::one)
 
 		elementHandle = handle.inputValue(status);
