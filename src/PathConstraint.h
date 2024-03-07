@@ -38,13 +38,14 @@
 #include "Maxformations.h"
 
 
-struct AxisSettings
+enum class WorldUpType
 {
 
-	int			forwardAxis;
-	bool		forwardAxisFlip;
-	int			upAxis;
-	bool		upAxisFlip;
+	SceneUp = 0,
+	ObjectUp = 1,
+	ObjectRotationUp = 2,
+	Vector = 3,
+	CurveNormal = 4
 
 };
 
@@ -52,9 +53,22 @@ struct AxisSettings
 struct WorldUpSettings
 {
 
-	int			worldUpType;
-	MVector		worldUpVector;
-	MMatrix		worldUpMatrix;
+	WorldUpType		worldUpType;
+	MVector			worldUpVector;
+	MMatrix			worldUpMatrix;
+
+};
+
+
+struct AxisSettings
+{
+
+	int				forwardAxis;
+	bool			forwardAxisFlip;
+	int				upAxis;
+	bool			upAxisFlip;
+	MAngle			twistAngle;
+	WorldUpSettings	worldUpSettings;
 
 };
 
@@ -76,19 +90,17 @@ public:
 	const	MObject		weightAttribute() const override;
 	const	MObject		constraintRotateOrderAttribute() const override;
 
-	static	MStatus		sampleCurveAtParameter(const MObject& curve, const double parameter, const AxisSettings& axisSettings, const WorldUpSettings& worldUpSettings, MPoint& position, MVector& forwardVector, MVector& upVector);
+	static	MStatus		createMatrixFromCurve(const MObject& curve, const double parameter, const AxisSettings& settings, MMatrix& matrix);
+	static	double		clampCurveParameter(const MObject& curve, const double parameter, MStatus* status);
 	static	MStatus		getForwardVector(const MObject& curve, const double parameter, MVector& forwardVector);
-	static	MStatus		getUpVector(const MObject& curve, const double parameter, const WorldUpSettings& settings, const MVector& position, MVector& upVector);
+	static	MStatus		getUpVector(const MObject& curve, const double parameter, const WorldUpSettings& settings, const MVector& origin, MVector& upVector);
 	static	MVector		getObjectRotationUpVector(const MVector& worldUpVector, const MMatrix& worldUpMatrix);
 	static	MStatus		getCurvePoint(const MObject& curve, const double parameter, MPoint& point);
 	static	MStatus		getCurveNormal(const MObject& curve, const double parameter, MVector& upVector);
-	static	MStatus		getParamFromPercentage(const MObject& curve, const double fraction, double& parameter);
-	static	MStatus		getCurveParamLength(const MObject& curve, double& maxParameter);
 
 public:
 
 	static	MObject		percent;
-	static	MObject		useParameter;
 	static	MObject		loop;
 	static	MObject		forwardAxis;
 	static	MObject		forwardAxisFlip;
@@ -145,6 +157,8 @@ public:
 	static	MString		restCategory;
 	static	MString		targetCategory;
 	static	MString		outputCategory;
+
+	static	MString		classification;
 
 	static	MTypeId		id;
 

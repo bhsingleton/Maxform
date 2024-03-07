@@ -93,6 +93,8 @@ public:
 	static	MString		targetCategory;
 	static	MString		outputCategory;
 
+	static	MString		classification;
+
 	static	MTypeId		id;
 
 };

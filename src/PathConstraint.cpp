@@ -10,7 +10,6 @@
 
 
 MObject PathConstraint::percent;
-MObject PathConstraint::useParameter;
 MObject PathConstraint::loop;
 MObject PathConstraint::forwardAxis;
 MObject PathConstraint::forwardAxisFlip;
@@ -66,6 +65,8 @@ MString	PathConstraint::restCategory("Rest");
 MString	PathConstraint::targetCategory("Target");
 MString	PathConstraint::outputCategory("Output");
 
+MString PathConstraint::classification("animation");
+
 MTypeId PathConstraint::id(0x0013b1c3);
 
 
@@ -103,9 +104,6 @@ Only these values should be used when performing computations!
 		// Get input data handles
 		//
 		MDataHandle percentHandle = data.inputValue(PathConstraint::percent, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle useParameterHandle = data.inputValue(PathConstraint::useParameter, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		MDataHandle loopHandle = data.inputValue(PathConstraint::loop, &status);
@@ -164,19 +162,21 @@ Only these values should be used when performing computations!
 
 		// Get values from handles
 		//
-		double percent = percentHandle.asDouble();
-		bool useParameter = useParameterHandle.asBool();
-		bool loop = loopHandle.asBool();
-		int forwardAxis = forwardAxisHandle.asShort();
-		bool forwardAxisFlip = forwardAxisFlipHandle.asBool();
-		MAngle twistAngle = twistHandle.asAngle();
-		int upAxis = upAxisHandle.asShort();
-		bool upAxisFlip = upAxisFlipHandle.asBool();
-		AxisSettings axisSettings = { forwardAxis, forwardAxisFlip, upAxis, upAxisFlip };
-		short worldUpType = worldUpTypeHandle.asShort();
+		double percentage = percentHandle.asDouble();
+		double fraction = percentage / 100.0;
+		bool looping = loopHandle.asBool();
+
+		WorldUpType worldUpType = WorldUpType(worldUpTypeHandle.asShort());
 		MVector worldUpVector = worldUpVectorHandle.asVector();
 		MMatrix worldUpMatrix = worldUpMatrixHandle.asMatrix();
 		WorldUpSettings worldUpSettings = { worldUpType, worldUpVector, worldUpMatrix };
+
+		int forwardAxis = forwardAxisHandle.asShort();
+		bool forwardAxisFlip = forwardAxisFlipHandle.asBool();
+		int upAxis = upAxisHandle.asShort();
+		bool upAxisFlip = upAxisFlipHandle.asBool();
+		MAngle twistAngle = twistHandle.asAngle();
+		AxisSettings axisSettings = { forwardAxis, forwardAxisFlip, upAxis, upAxisFlip, twistAngle, worldUpSettings };
 
 		MEulerRotation::RotationOrder constraintRotateOrder = MEulerRotation::RotationOrder(constraintRotateOrderHandle.asShort());
 		MMatrix constraintParentInverseMatrix = constraintParentInverseMatrixHandle.asMatrix();
@@ -215,8 +215,9 @@ Only these values should be used when performing computations!
 		//
 		MDataHandle targetHandle, targetWeightHandle, targetCurveHandle;
 
-		MObject targetCurve;
-		double parameter, maxParameter, percentage;
+		MObject curve;
+		MFnNurbsCurve fnCurve;
+		double parameter, minParameter, maxParameter;
 		MPoint position;
 		MVector forwardVector, upVector;
 		MMatrix targetMatrix;
@@ -226,7 +227,7 @@ Only these values should be used when performing computations!
 
 			// Jump to array element
 			//
-			status = targetArrayHandle.jumpToElement(i);
+			status = targetArrayHandle.jumpToArrayElement(i);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			targetHandle = targetArrayHandle.inputValue(&status);
@@ -241,48 +242,45 @@ Only these values should be used when performing computations!
 			//
 			targetWeights[i] = Maxformations::clamp(targetWeightHandle.asFloat(), 0.0f, 100.0f) / 100.0;
 
-			// Get curve parameter
+			// Get curve parameter range
 			//
-			targetCurve = targetCurveHandle.asNurbsCurve();
+			curve = targetCurveHandle.asNurbsCurve();
 
-			if (useParameter)
+			status = fnCurve.setObject(curve);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			status = fnCurve.getKnotDomain(minParameter, maxParameter);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			// Interpret requested parameter
+			//
+			if (looping)
 			{
 
-				status = PathConstraint::getCurveParamLength(targetCurve, maxParameter);
-				CHECK_MSTATUS_AND_RETURN_IT(status);
-
-				parameter = loop ? Maxformations::loop(percent, 0.0, maxParameter) : Maxformations::clamp(percent, 0.0, maxParameter);
+				parameter = Maxformations::loop(Maxformations::lerp(minParameter, maxParameter, fraction), minParameter, maxParameter);
 
 			}
 			else
 			{
 
-				percentage = loop ? Maxformations::loop(percent, 0.0, 100.0) : Maxformations::clamp(percent, 0.0, 100.0);
-
-				status = PathConstraint::getParamFromPercentage(targetCurve, percentage, parameter);
-				CHECK_MSTATUS_AND_RETURN_IT(status);
+				parameter = Maxformations::lerp(minParameter, maxParameter, Maxformations::clamp(fraction, 0.0, 1.0));
 
 			}
 
-			// Sample curve at parameter
+			// Create matrix from curve
 			//
-			status = PathConstraint::sampleCurveAtParameter(targetCurve, parameter, axisSettings, worldUpSettings, position, forwardVector, upVector);
+			status = PathConstraint::createMatrixFromCurve(curve, parameter, axisSettings, targetMatrix);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			// Compose transform matrix
-			//
-			status = Maxformations::createAimMatrix(forwardVector, forwardAxis, upVector, upAxis, position, targetMatrix);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
-			targetMatrices[i] = twistMatrix * targetMatrix;
+			targetMatrices[i] = targetMatrix;
 
 		}
 
 		// Calculate weighted constraint matrix
 		//
-		MMatrix pathMatrix = Maxformations::blendMatrices(restWorldMatrix, targetMatrices, targetWeights);
+		MMatrix matrix = Maxformations::blendMatrices(restWorldMatrix, targetMatrices, targetWeights);
 
-		MMatrix constraintWorldMatrix = offsetMatrix * pathMatrix;
+		MMatrix constraintWorldMatrix = offsetMatrix * matrix;
 		MMatrix constraintMatrix = constraintWorldMatrix * constraintParentInverseMatrix;
 
 		// Get output data handles
@@ -320,11 +318,10 @@ Only these values should be used when performing computations!
 		// Update constraint translation
 		//
 		MVector constraintTranslate = Maxformations::matrixToPosition(constraintMatrix);
-		MDistance::Unit distanceUnit = MDistance::internalUnit();
 
-		constraintTranslateXHandle.setMDistance(MDistance(constraintTranslate.x, distanceUnit));
-		constraintTranslateYHandle.setMDistance(MDistance(constraintTranslate.y, distanceUnit));
-		constraintTranslateZHandle.setMDistance(MDistance(constraintTranslate.z, distanceUnit));
+		constraintTranslateXHandle.setMDistance(MDistance(constraintTranslate.x, MDistance::kCentimeters));
+		constraintTranslateYHandle.setMDistance(MDistance(constraintTranslate.y, MDistance::kCentimeters));
+		constraintTranslateZHandle.setMDistance(MDistance(constraintTranslate.z, MDistance::kCentimeters));
 
 		constraintTranslateXHandle.setClean();
 		constraintTranslateYHandle.setClean();
@@ -333,11 +330,10 @@ Only these values should be used when performing computations!
 		// Update constraint rotation
 		//
 		MEulerRotation constraintRotate = Maxformations::matrixToEulerRotation(constraintMatrix, constraintRotateOrder);
-		MAngle::Unit angleUnit = MAngle::internalUnit();
 
-		constraintRotateXHandle.setMAngle(MAngle(constraintRotate.x, angleUnit));
-		constraintRotateYHandle.setMAngle(MAngle(constraintRotate.y, angleUnit));
-		constraintRotateZHandle.setMAngle(MAngle(constraintRotate.z, angleUnit));
+		constraintRotateXHandle.setMAngle(MAngle(constraintRotate.x, MAngle::kRadians));
+		constraintRotateYHandle.setMAngle(MAngle(constraintRotate.y, MAngle::kRadians));
+		constraintRotateZHandle.setMAngle(MAngle(constraintRotate.z, MAngle::kRadians));
 
 		constraintRotateXHandle.setClean();
 		constraintRotateYHandle.setClean();
@@ -373,7 +369,7 @@ Only these values should be used when performing computations!
 };
 
 
-MStatus	PathConstraint::sampleCurveAtParameter(const MObject& curve, const double parameter, const AxisSettings& axisSettings, const WorldUpSettings& worldUpSettings, MPoint& position, MVector& forwardVector, MVector& upVector)
+MStatus	PathConstraint::createMatrixFromCurve(const MObject& curve, const double parameter, const AxisSettings& settings, MMatrix& matrix)
 /**
 Samples the supplied curve at the specified parameter.
 
@@ -390,34 +386,72 @@ Samples the supplied curve at the specified parameter.
 
 	// Get curve point
 	//
-	status = PathConstraint::getCurvePoint(curve, parameter, position);
+	MPoint origin = MPoint::origin;
+
+	status = PathConstraint::getCurvePoint(curve, parameter, origin);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Get forward-vector
 	//
+	MVector forwardVector = MVector::xAxis;
+
 	status = PathConstraint::getForwardVector(curve, parameter, forwardVector);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (axisSettings.forwardAxisFlip)
-	{
-
-		forwardVector *= -1.0;
-
-	}
-
 	// Get up-vector
 	//
-	status = PathConstraint::getUpVector(curve, parameter, worldUpSettings, position, upVector);
+	MVector upVector = MVector::yAxis;
+
+	status = PathConstraint::getUpVector(curve, parameter, settings.worldUpSettings, origin, upVector);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	
+	// Compose matrix
+	//
+	MMatrix axisMatrix = MMatrix::identity;
+	
+	status = Maxformations::createAimMatrix(settings.forwardAxis, settings.forwardAxisFlip, settings.upAxis, settings.upAxisFlip, axisMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	if (axisSettings.upAxisFlip)
-	{
+	MVector axisVector = Maxformations::getAxisVector(settings.forwardAxis, settings.forwardAxisFlip);
+	MMatrix twistMatrix = MQuaternion(settings.twistAngle.asRadians(), axisVector).asMatrix();
 
-		upVector *= -1.0;
+	MVector rightVector = (forwardVector ^ upVector).normal();
+	MVector altUpVector = (rightVector ^ forwardVector).normal();
+	MMatrix aimMatrix = Maxformations::composeMatrix(forwardVector, altUpVector, rightVector, origin);
 
-	}
+	matrix = twistMatrix * (axisMatrix * aimMatrix);
 
 	return status;
+
+};
+
+
+double PathConstraint::clampCurveParameter(const MObject& curve, const double parameter, MStatus* status)
+/**
+Returns a clamped parameter based on the supplied curve.
+
+@param curve: The curve data object to sample from.
+@param parameter: The curve parameter to clamp.
+@param forwardVector: Return status.
+@return: The clamped parameter.
+*/
+{
+
+	// Initialize function set
+	//
+	MFnNurbsCurve fnCurve(curve, status);
+	CHECK_MSTATUS_AND_RETURN(*status, parameter);
+
+	// Get curve parameter range
+	//
+	double minParameter, maxParameter;
+
+	*status = fnCurve.getKnotDomain(minParameter, maxParameter);
+	CHECK_MSTATUS_AND_RETURN(*status, parameter);
+
+	// Clamp parameter within range
+	//
+	return Maxformations::clamp(parameter, (minParameter + 1e-3), (maxParameter - 1e-3));
 
 };
 
@@ -435,39 +469,16 @@ Returns the forward vector at the specified parameter.
 
 	MStatus status;
 
-	// Initialize function set
+	// Clamp curve parameter
+	//
+	double clampedParameter = PathConstraint::clampCurveParameter(curve, parameter, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Evaluate tangent at parameter
 	//
 	MFnNurbsCurve fnCurve(curve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
-	// Check if parameter is in range
-	//
-	double startParameter, endParameter, clampedParameter;
-
-	status = fnCurve.getKnotDomain(startParameter, endParameter);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	if (parameter < startParameter)
-	{
-
-		clampedParameter = startParameter;
-
-	}
-	else if (parameter >= endParameter)
-	{
-
-		clampedParameter = endParameter - 1e-3;
-
-	}
-	else
-	{
-
-		clampedParameter = parameter;
-
-	}
-
-	// Return tagent vector at parameter
-	//
 	forwardVector = fnCurve.tangent(clampedParameter, MSpace::kWorld, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -479,7 +490,7 @@ Returns the forward vector at the specified parameter.
 };
 
 
-MStatus PathConstraint::getUpVector(const MObject& curve, const double parameter, const WorldUpSettings& settings, const MVector& position, MVector& upVector)
+MStatus PathConstraint::getUpVector(const MObject& curve, const double parameter, const WorldUpSettings& settings, const MVector& origin, MVector& upVector)
 /**
 Returns the up vector based on the selected world up type.
 
@@ -493,12 +504,12 @@ Returns the up vector based on the selected world up type.
 
 	MStatus status;
 
-	// Check world up type
+	// Evaluate world-up type
 	//
 	switch (settings.worldUpType)
 	{
 
-	case 0: // Scene Up
+	case WorldUpType::SceneUp:
 	{
 
 		upVector = MGlobal::upAxis();
@@ -506,15 +517,15 @@ Returns the up vector based on the selected world up type.
 	}
 	break;
 
-	case 1: // Object Up
+	case WorldUpType::ObjectUp:
 	{
 
-		upVector = (MVector(position) - MVector(settings.worldUpMatrix[3])).normal();
+		upVector = (MVector(settings.worldUpMatrix[3]) - MVector(origin)).normal();
 
 	}
 	break;
 
-	case 2: // Object Rotation Up
+	case WorldUpType::ObjectRotationUp:
 	{
 
 		upVector = PathConstraint::getObjectRotationUpVector(settings.worldUpVector, settings.worldUpMatrix);
@@ -522,7 +533,7 @@ Returns the up vector based on the selected world up type.
 	}
 	break;
 
-	case 3: // Vector
+	case WorldUpType::Vector:
 	{
 
 		upVector = MVector(settings.worldUpVector).normal();
@@ -530,7 +541,7 @@ Returns the up vector based on the selected world up type.
 	}
 	break;
 
-	case 4: // Curve normal
+	case WorldUpType::CurveNormal:
 	{
 
 		status = PathConstraint::getCurveNormal(curve, parameter, upVector);
@@ -590,14 +601,17 @@ Returns the point on a curve from the given percentile.
 
 	MStatus status;
 
-	// Initialize function set
+	// Clamp curve parameter
+	//
+	double clampedParameter = PathConstraint::clampCurveParameter(curve, parameter, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Evaluate point at parameter
 	//
 	MFnNurbsCurve fnCurve(curve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Return normal at parameter
-	//
-	status = fnCurve.getPointAtParam(parameter, position, MSpace::kWorld);
+	status = fnCurve.getPointAtParam(clampedParameter, position, MSpace::kWorld);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
@@ -618,115 +632,20 @@ Returns the tangent normal at the given percentile.
 
 	MStatus status;
 
-	// Initialize function set
+	// Clamp curve parameter
+	//
+	double clampedParameter = PathConstraint::clampCurveParameter(curve, parameter, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Evaluate normal at parameter
 	//
 	MFnNurbsCurve fnCurve(curve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Check if parameter is in range
-	//
-	double startParameter, endParameter, clampedParameter;
-
-	status = fnCurve.getKnotDomain(startParameter, endParameter);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	if (parameter < startParameter)
-	{
-
-		clampedParameter = startParameter;
-
-	}
-	else if (parameter >= endParameter)
-	{
-
-		clampedParameter = endParameter - 1e-3;
-
-	}
-	else
-	{
-
-		clampedParameter = parameter;
-
-	}
-
-	// Return normal at parameter
-	//
 	upVector = fnCurve.normal(clampedParameter, MSpace::kWorld, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
-
-};
-
-
-MStatus PathConstraint::getParamFromPercentage(const MObject& curve, const double percentage, double& parameter)
-/**
-Returns the curve parameter based on the fractional distance across the curve.
-
-@param curve: The curve data object to sample from.
-@param fraction: The fractional distance, between 0-1, to sample from.
-@param parameter: The passed parameter to populate.
-@return: Return status.
-*/
-{
-
-	MStatus status;
-
-	// Initialize function set
-	//
-	MFnNurbsCurve fnCurve(curve, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Calculate the fractional distance
-	//
-	double fraction = Maxformations::clamp(percentage, 0.0, 100.0) / 100.0;
-
-	double curveLength = fnCurve.length();
-	double paramLength = fraction * curveLength;
-
-	if (paramLength == 0.0)
-	{
-
-		paramLength += 0.001;
-
-	}
-	else if (paramLength == curveLength)
-	{
-
-		paramLength -= 0.001;
-
-	}
-	else;
-
-	// Get param from length
-	//
-	parameter = fnCurve.findParamFromLength(paramLength, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	return status;
-
-};
-
-
-MStatus PathConstraint::getCurveParamLength(const MObject& curve, double& maxParameter)
-{
-
-	MStatus status;
-
-	// Initialize function set
-	//
-	MFnNurbsCurve fnCurve(curve, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Find max parameter from curve length
-	//
-	double length = fnCurve.length(1e-3, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	maxParameter = fnCurve.findParamFromLength(length, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	return MS::kSuccess;
 
 };
 
@@ -815,13 +734,6 @@ Use this function to define any static attributes.
 	// ".percent" attribute
 	//
 	PathConstraint::percent = fnNumericAttr.create("percent", "pct", MFnNumericData::kDouble, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	CHECK_MSTATUS(fnNumericAttr.addToCategory(PathConstraint::inputCategory));
-
-	// ".useParameter" attribute
-	//
-	PathConstraint::useParameter = fnNumericAttr.create("useParameter", "up", MFnNumericData::kBoolean, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	CHECK_MSTATUS(fnNumericAttr.addToCategory(PathConstraint::inputCategory));
@@ -1226,7 +1138,6 @@ Use this function to define any static attributes.
 	// Add attributes
 	//
 	CHECK_MSTATUS(PathConstraint::addAttribute(PathConstraint::percent));
-	CHECK_MSTATUS(PathConstraint::addAttribute(PathConstraint::useParameter));
 	CHECK_MSTATUS(PathConstraint::addAttribute(PathConstraint::loop));
 	CHECK_MSTATUS(PathConstraint::addAttribute(PathConstraint::forwardAxis));
 	CHECK_MSTATUS(PathConstraint::addAttribute(PathConstraint::forwardAxisFlip));

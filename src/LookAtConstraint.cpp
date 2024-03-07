@@ -53,6 +53,8 @@ MString	LookAtConstraint::restCategory("Rest");
 MString	LookAtConstraint::targetCategory("Target");
 MString	LookAtConstraint::outputCategory("Output");
 
+MString LookAtConstraint::classification("animation");
+
 MTypeId	LookAtConstraint::id(0x0013b1d7);
 
 
@@ -199,7 +201,7 @@ Only these values should be used when performing computations!
 
 			// Jump to array element
 			//
-			status = targetArrayHandle.jumpToElement(i);
+			status = targetArrayHandle.jumpToArrayElement(i);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			targetHandle = targetArrayHandle.inputValue(&status);
@@ -281,11 +283,10 @@ Only these values should be used when performing computations!
 		// Update output data handles
 		//
 		MEulerRotation constraintRotate = Maxformations::matrixToEulerRotation(constraintMatrix, constraintRotateOrder);
-		MAngle::Unit internalUnit = MAngle::internalUnit();
 
-		constraintRotateXHandle.setMAngle(MAngle(constraintRotate.x, internalUnit));
-		constraintRotateYHandle.setMAngle(MAngle(constraintRotate.y, internalUnit));
-		constraintRotateZHandle.setMAngle(MAngle(constraintRotate.z, internalUnit));
+		constraintRotateXHandle.setMAngle(MAngle(constraintRotate.x, MAngle::kRadians));
+		constraintRotateYHandle.setMAngle(MAngle(constraintRotate.y, MAngle::kRadians));
+		constraintRotateZHandle.setMAngle(MAngle(constraintRotate.z, MAngle::kRadians));
 
 		constraintRotateXHandle.setClean();
 		constraintRotateYHandle.setClean();

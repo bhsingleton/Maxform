@@ -44,7 +44,10 @@ MString	PositionConstraint::restCategory("Rest");
 MString	PositionConstraint::targetCategory("Target");
 MString	PositionConstraint::outputCategory("Output");
 
+MString PositionConstraint::classification("animation");
+
 MTypeId	PositionConstraint::id(0x0013b1d5);
+
 
 PositionConstraint::PositionConstraint() {};
 PositionConstraint::~PositionConstraint() {};
@@ -133,7 +136,7 @@ Only these values should be used when performing computations!
 
 			// Jump to array element
 			//
-			status = targetArrayHandle.jumpToElement(i);
+			status = targetArrayHandle.jumpToArrayElement(i);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			targetHandle = targetArrayHandle.inputValue(&status);
@@ -211,11 +214,10 @@ Only these values should be used when performing computations!
 		// Update output data handles
 		//
 		MVector constraintTranslate = Maxformations::matrixToPosition(constraintMatrix);
-		MDistance::Unit internalUnit = MDistance::internalUnit();
 
-		constraintTranslateXHandle.setMDistance(MDistance(constraintTranslate.x, internalUnit));
-		constraintTranslateYHandle.setMDistance(MDistance(constraintTranslate.y, internalUnit));
-		constraintTranslateZHandle.setMDistance(MDistance(constraintTranslate.z, internalUnit));
+		constraintTranslateXHandle.setMDistance(MDistance(constraintTranslate.x, MDistance::kCentimeters));
+		constraintTranslateYHandle.setMDistance(MDistance(constraintTranslate.y, MDistance::kCentimeters));
+		constraintTranslateZHandle.setMDistance(MDistance(constraintTranslate.z, MDistance::kCentimeters));
 
 		constraintTranslateXHandle.setClean();
 		constraintTranslateYHandle.setClean();

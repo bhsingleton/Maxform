@@ -79,19 +79,19 @@ MStatus initializePlugin(MObject obj)
 	status = plugin.registerNode("scaleList", ScaleList::id, ScaleList::creator, ScaleList::initialize, MPxNode::kDependNode, &ScaleList::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	
-	status = plugin.registerNode("positionConstraint", PositionConstraint::id, PositionConstraint::creator, PositionConstraint::initialize, MPxNode::kConstraintNode);
+	status = plugin.registerNode("positionConstraint", PositionConstraint::id, PositionConstraint::creator, PositionConstraint::initialize, MPxNode::kConstraintNode, &PositionConstraint::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("orientationConstraint", OrientationConstraint::id, OrientationConstraint::creator, OrientationConstraint::initialize, MPxNode::kConstraintNode);
+	status = plugin.registerNode("orientationConstraint", OrientationConstraint::id, OrientationConstraint::creator, OrientationConstraint::initialize, MPxNode::kConstraintNode, &OrientationConstraint::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("lookAtConstraint", LookAtConstraint::id, LookAtConstraint::creator, LookAtConstraint::initialize, MPxNode::kConstraintNode);
+	status = plugin.registerNode("lookAtConstraint", LookAtConstraint::id, LookAtConstraint::creator, LookAtConstraint::initialize, MPxNode::kConstraintNode, &LookAtConstraint::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("pathConstraint", PathConstraint::id, PathConstraint::creator, PathConstraint::initialize, MPxNode::kConstraintNode);
+	status = plugin.registerNode("pathConstraint", PathConstraint::id, PathConstraint::creator, PathConstraint::initialize, MPxNode::kConstraintNode, &PathConstraint::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerNode("attachmentConstraint", AttachmentConstraint::id, AttachmentConstraint::creator, AttachmentConstraint::initialize, MPxNode::kConstraintNode);
+	status = plugin.registerNode("attachmentConstraint", AttachmentConstraint::id, AttachmentConstraint::creator, AttachmentConstraint::initialize, MPxNode::kConstraintNode, &AttachmentConstraint::classification);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 

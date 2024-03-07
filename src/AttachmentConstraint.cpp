@@ -55,6 +55,8 @@ MString	AttachmentConstraint::offsetCategory("Offset");
 MString	AttachmentConstraint::targetCategory("Target");
 MString	AttachmentConstraint::outputCategory("Output");
 
+MString AttachmentConstraint::classification("animation");
+
 MTypeId AttachmentConstraint::id(0x0013b1c9);
 
 
@@ -156,7 +158,7 @@ Only these values should be used when performing computations!
 
 			// Jump to array element
 			//
-			status = targetArrayHandle.jumpToElement(i);
+			status = targetArrayHandle.jumpToArrayElement(i);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			targetHandle = targetArrayHandle.inputValue(&status);
@@ -234,11 +236,10 @@ Only these values should be used when performing computations!
 		// Update translation constraints
 		//
 		MVector constraintTranslate = Maxformations::matrixToPosition(constraintMatrix);
-		MDistance::Unit distanceUnit = MDistance::internalUnit();
 
-		constraintTranslateXHandle.setMDistance(MDistance(constraintTranslate.x, distanceUnit));
-		constraintTranslateYHandle.setMDistance(MDistance(constraintTranslate.y, distanceUnit));
-		constraintTranslateZHandle.setMDistance(MDistance(constraintTranslate.z, distanceUnit));
+		constraintTranslateXHandle.setMDistance(MDistance(constraintTranslate.x, MDistance::kCentimeters));
+		constraintTranslateYHandle.setMDistance(MDistance(constraintTranslate.y, MDistance::kCentimeters));
+		constraintTranslateZHandle.setMDistance(MDistance(constraintTranslate.z, MDistance::kCentimeters));
 
 		constraintTranslateXHandle.setClean();
 		constraintTranslateYHandle.setClean();
@@ -247,11 +248,10 @@ Only these values should be used when performing computations!
 		// Update rotation constraints
 		//
 		MEulerRotation constraintRotate = Maxformations::matrixToEulerRotation(constraintMatrix, constraintRotateOrder);
-		MAngle::Unit angleUnit = MAngle::internalUnit();
 
-		constraintRotateXHandle.setMAngle(MAngle(constraintRotate.x, angleUnit));
-		constraintRotateYHandle.setMAngle(MAngle(constraintRotate.y, angleUnit));
-		constraintRotateZHandle.setMAngle(MAngle(constraintRotate.z, angleUnit));
+		constraintRotateXHandle.setMAngle(MAngle(constraintRotate.x, MAngle::kRadians));
+		constraintRotateYHandle.setMAngle(MAngle(constraintRotate.y, MAngle::kRadians));
+		constraintRotateZHandle.setMAngle(MAngle(constraintRotate.z, MAngle::kRadians));
 
 		constraintRotateXHandle.setClean();
 		constraintRotateYHandle.setClean();
