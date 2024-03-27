@@ -217,7 +217,7 @@ Only these values should be used when performing computations!
 
 		MObject curve;
 		MFnNurbsCurve fnCurve;
-		double parameter, minParameter, maxParameter;
+		double curveLength, fractionalLength, parameter;
 		MPoint position;
 		MVector forwardVector, upVector;
 		MMatrix targetMatrix;
@@ -242,30 +242,29 @@ Only these values should be used when performing computations!
 			//
 			targetWeights[i] = Maxformations::clamp(targetWeightHandle.asFloat(), 0.0f, 100.0f) / 100.0;
 
-			// Get curve parameter range
+			// Get curve length
 			//
 			curve = targetCurveHandle.asNurbsCurve();
 
 			status = fnCurve.setObject(curve);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			status = fnCurve.getKnotDomain(minParameter, maxParameter);
+			curveLength = fnCurve.length(1e-3, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			// Interpret requested parameter
+			// Find parameter from percentage
 			//
 			if (looping)
 			{
 
-				parameter = Maxformations::loop(Maxformations::lerp(minParameter, maxParameter, fraction), minParameter, maxParameter);
-
+				fraction = Maxformations::loop(fraction, 0.0, 1.0);
+				
 			}
-			else
-			{
 
-				parameter = Maxformations::lerp(minParameter, maxParameter, Maxformations::clamp(fraction, 0.0, 1.0));
+			fractionalLength = fraction * curveLength;
 
-			}
+			parameter = fnCurve.findParamFromLength(fractionalLength, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			// Create matrix from curve
 			//
