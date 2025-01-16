@@ -33,6 +33,7 @@ public:
 	virtual	MPxTransformationMatrix&	operator=(const MMatrix& src);
 	virtual	MPxTransformationMatrix&	operator=(const MTransformationMatrix& src);
 	virtual	void						copyValues(MPxTransformationMatrix* src);
+	virtual	void						copyValues(MTransformationMatrix& src);
 
 	virtual	MQuaternion					preRotation() const override;
 	virtual	MMatrix						asMatrix() const override;
@@ -41,13 +42,11 @@ public:
 	virtual	MMatrix						asScaleMatrix() const override;
 	virtual	MTransformationMatrix		asTransformationMatrix() const override;
 
-	virtual	void						setTransform(const MTransformationMatrix& transform);
-
 	static	MTypeId						id;
 	
 protected:
 			
-			MTransformationMatrix		transformValue;
+			MTransformationMatrix		matrixValue;
 
 };
 #endif

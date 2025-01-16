@@ -16,7 +16,7 @@ Constructor.
 */
 { 
 	
-	this->transformValue = MTransformationMatrix::identity; 
+	this->matrixValue = MTransformationMatrix::identity; 
 
 };
 
@@ -95,8 +95,8 @@ Assignment operator.
 
 	MVector translation = src.getTranslation(MSpace::kTransform);
 	MEulerRotation eulerRotation = src.eulerRotation();
-	double3 scale;
-	MStatus status = src.getScale(scale, MSpace::kTransform);
+	double3 scale = { 1.0, 1.0, 1.0 };
+	src.getScale(scale, MSpace::kTransform);
 
 	this->translateTo(translation);
 	this->rotateTo(eulerRotation);
@@ -107,20 +107,34 @@ Assignment operator.
 };
 
 
-void Matrix3::copyValues(MPxTransformationMatrix* xform)
+void Matrix3::copyValues(MPxTransformationMatrix* src)
 /**
 This method should be overridden for any transform that uses more than the default transform values.
 The values from the passed class (which should be type checked and downcast to its appropriate value) should be copied to this class.
 Without this method being overridden, only the default transform components will get copied.
 
-@param xform: The user defined transformation matrix that should be copied. 
+@param src: The user defined transformation matrix that should be copied. 
 @return: Void.
 */
 {
 
-	this->translateTo(xform->translation());
-	this->rotateTo(xform->eulerRotation());
-	this->scaleTo(xform->scale());
+	this->translateTo(src->translation());
+	this->rotateTo(src->eulerRotation());
+	this->scaleTo(src->scale());
+
+};
+
+
+void Matrix3::copyValues(MTransformationMatrix& src)
+/**
+Copies the the supplied transformation matrix.
+
+@param src: The transformation matrix that should be copied.
+@return: Void.
+*/
+{
+
+	this->matrixValue = src;  // Strictly used by `Maxform::computeLocalTransformation` method!
 
 };
 
@@ -136,21 +150,8 @@ The rotate orientation orients the local rotation space.
 */
 {
 
-	return this->transformValue.rotationOrientation();
+	return this->matrixValue.rotationOrientation();
 
-};
-
-
-MMatrix Matrix3::asMatrix() const
-/**
-Returns the four by four matrix that describes this transformation.
-
-@return: Four by four matrix.
-*/
-{
-	
-	return this->transformValue.asMatrix();
-	
 };
 
 
@@ -162,7 +163,7 @@ Returns the rotate section of the transformation matrix.
 */
 {
 
-	return Maxformations::createPositionMatrix(this->asMatrix());
+	return Maxformations::createPositionMatrix(this->matrixValue.asMatrix());
 
 };
 
@@ -175,7 +176,7 @@ Returns the rotate section of the transformation matrix.
 */
 {
 
-	return this->transformValue.asRotateMatrix();
+	return this->matrixValue.asRotateMatrix();
 
 };
 
@@ -188,8 +189,21 @@ The scale matrix takes points from object space to the space immediately followi
 @return: The scale matrix.
 */
 {
+	
+	return this->matrixValue.asScaleMatrix();
 
-	return this->transformValue.asScaleMatrix();
+};
+
+
+MMatrix Matrix3::asMatrix() const
+/**
+Returns the four by four matrix that describes this transformation.
+
+@return: Four by four matrix.
+*/
+{
+
+	return this->matrixValue.asMatrix();
 
 };
 
@@ -202,20 +216,6 @@ Returns the custom transformation matrix as a standard MTransformationMatrix.
 */
 {
 
-	return MTransformationMatrix(this->transformValue);
-
-};
-
-
-void Matrix3::setTransform(const MTransformationMatrix& transform)
-/**
-Updates the internal transformation matrix.
-
-@param matrix: The new transformation matrix.
-@return: Void.
-*/
-{
-
-	this->transformValue = transform;
+	return MTransformationMatrix(this->matrixValue);
 
 };

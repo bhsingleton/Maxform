@@ -144,27 +144,7 @@ The caller needs to allocate space for the passed transformation matrix.
 	if (matrix3 != nullptr)
 	{
 
-		// Get transform pivots
-		//
-		MDataHandle rotatePivotHandle = data.inputValue(Maxform::rotatePivot, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle rotatePivotXHandle = rotatePivotHandle.child(Maxform::rotatePivotX);
-		MDataHandle rotatePivotYHandle = rotatePivotHandle.child(Maxform::rotatePivotY);
-		MDataHandle rotatePivotZHandle = rotatePivotHandle.child(Maxform::rotatePivotZ);
-
-		MPoint rotatePivot = MPoint(rotatePivotXHandle.asDistance().asCentimeters(), rotatePivotYHandle.asDistance().asCentimeters(), rotatePivotZHandle.asDistance().asCentimeters());
-
-		MDataHandle scalePivotHandle = data.inputValue(Maxform::scalePivot, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MDataHandle scalePivotXHandle = scalePivotHandle.child(Maxform::scalePivotX);
-		MDataHandle scalePivotYHandle = scalePivotHandle.child(Maxform::scalePivotY);
-		MDataHandle scalePivotZHandle = scalePivotHandle.child(Maxform::scalePivotZ);
-
-		MPoint scalePivot = MPoint(scalePivotXHandle.asDistance().asCentimeters(), scalePivotYHandle.asDistance().asCentimeters(), scalePivotZHandle.asDistance().asCentimeters());
-
-		// Get transform matrix
+		// Update internal transformation matrix
 		//
 		MDataHandle transformHandle = data.inputValue(Maxform::transform, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -172,15 +152,7 @@ The caller needs to allocate space for the passed transformation matrix.
 		MObject transformData = transformHandle.data();
 		MTransformationMatrix transform = Maxformations::getTransformData(transformData);
 
-		status = transform.setRotatePivot(rotatePivot, MSpace::kTransform, false);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		status = transform.setScalePivot(scalePivot, MSpace::kTransform, false);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		// Update internal transform
-		//
-		matrix3->setTransform(transform);
+		matrix3->copyValues(transform);
 
 		return MS::kSuccess;
 
